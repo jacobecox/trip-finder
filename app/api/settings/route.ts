@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { getDb, property, settings } from "@/lib/db";
-import { geocodeText } from "@/lib/geo/ors";
+import { geocodeText } from "@/lib/geo/nominatim";
 import { getSettings } from "@/lib/queries";
 
 const Body = z.object({

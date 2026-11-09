@@ -34,6 +34,10 @@ export default function Uploader() {
       if (!res.ok) throw new Error(json.error ?? "Geocoding failed");
       remaining = json.remaining;
       setProgress({ done: Math.max(0, total - remaining), total });
+      if (json.quotaExceeded) {
+        setError("Geocoding rate limit reached. Remaining properties stay pending; use Retry on the Properties page later.");
+        break;
+      }
       if (json.processed === 0) break;
     }
   }

@@ -131,6 +131,7 @@ function Row({ p }: { p: P }) {
 export default function PropertiesTable({ rows }: { rows: P[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
   const queued = rows.filter((r) => r.geocodeStatus !== "ok").length;
 
   async function run(retryFailed: boolean) {
@@ -146,7 +147,8 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
         });
         first = false;
         const j = await res.json();
-        more = res.ok && j.remaining > 0 && j.processed > 0;
+        if (j.quotaExceeded) setNote("Geocoding rate limit reached. Try again later.");
+        more = res.ok && !j.quotaExceeded && j.remaining > 0 && j.processed > 0;
       }
     } finally {
       setBusy(false);
@@ -156,6 +158,7 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
 
   return (
     <div className="space-y-3">
+      {note && <p className="text-sm text-amber-700">{note}</p>}
       {queued > 0 && (
         <button disabled={busy} onClick={() => run(true)} className="rounded border px-3 py-1 text-sm disabled:opacity-50">
           {busy ? "Geocoding…" : `Geocode / retry ${queued} unfinished`}

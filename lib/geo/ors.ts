@@ -1,15 +1,9 @@
 const BASE = "https://api.openrouteservice.org";
 const M_PER_MILE = 1609.344;
 
-export interface LatLng {
-  lat: number;
-  lng: number;
-}
-export interface GeocodeHit extends LatLng {
-  source: "ors-venue" | "ors-city";
-}
+import { type LatLng, QuotaError, sleep, throttle } from "./util";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const DIRECTIONS_MIN_INTERVAL_MS = 1600; // ORS free tier: 40 directions/min
 
 function key() {
   const k = process.env.ORS_API_KEY;
@@ -19,6 +13,7 @@ function key() {
 
 async function orsFetch(url: string, init?: RequestInit, attempt = 0): Promise<Response> {
   const res = await fetch(url, init);
+  if (res.status === 403) throw new QuotaError("OpenRouteService");
   if ((res.status === 429 || res.status >= 500) && attempt < 3) {
     const retryAfter = Number(res.headers.get("retry-after"));
     await sleep((retryAfter > 0 ? retryAfter * 1000 : 2000 * 2 ** attempt) + Math.random() * 300);
@@ -27,51 +22,9 @@ async function orsFetch(url: string, init?: RequestInit, attempt = 0): Promise<R
   return res;
 }
 
-interface PeliasFeature {
-  geometry: { coordinates: [number, number] };
-  properties: { confidence?: number; layer?: string };
-}
-
-async function search(text: string, countryCode: string): Promise<PeliasFeature | null> {
-  const qs = new URLSearchParams({ api_key: key(), text, size: "1", "boundary.country": countryCode });
-  const res = await orsFetch(`${BASE}/geocode/search?${qs}`);
-  if (!res.ok) throw new Error(`ORS geocode ${res.status}`);
-  const json = (await res.json()) as { features?: PeliasFeature[] };
-  return json.features?.[0] ?? null;
-}
-
-/** Tries the resort itself first, then falls back to city level. */
-export async function geocodeProperty(p: {
-  name: string;
-  city: string;
-  state: string;
-  country: string;
-  countryCode: string;
-}): Promise<GeocodeHit | null> {
-  const place = [p.city, p.state, p.country].filter(Boolean).join(", ");
-  const venue = await search(`${p.name}, ${place}`, p.countryCode);
-  const vp = venue?.properties;
-  if (venue && (vp?.confidence ?? 0) >= 0.8 && (vp?.layer === "venue" || vp?.layer === "address")) {
-    const [lng, lat] = venue.geometry.coordinates;
-    return { lat, lng, source: "ors-venue" };
-  }
-  const city = await search(place, p.countryCode);
-  if (!city) return null;
-  const [lng, lat] = city.geometry.coordinates;
-  return { lat, lng, source: "ors-city" };
-}
-
-export async function geocodeText(text: string): Promise<LatLng | null> {
-  const qs = new URLSearchParams({ api_key: key(), text, size: "1" });
-  const res = await orsFetch(`${BASE}/geocode/search?${qs}`);
-  if (!res.ok) throw new Error(`ORS geocode ${res.status}`);
-  const json = (await res.json()) as { features?: PeliasFeature[] };
-  const f = json.features?.[0];
-  return f ? { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] } : null;
-}
-
 /** Returns null when no driving route exists; throws on transient/API failures. */
 export async function driveRoute(from: LatLng, to: LatLng): Promise<{ hours: number; miles: number } | null> {
+  await throttle("ors-directions", DIRECTIONS_MIN_INTERVAL_MS);
   const res = await orsFetch(`${BASE}/v2/directions/driving-car`, {
     method: "POST",
     headers: { Authorization: key(), "Content-Type": "application/json" },

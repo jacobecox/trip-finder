@@ -1,10 +1,9 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { getDb, property } from "@/lib/db";
 import { getSettings } from "@/lib/queries";
-import { driveRoute, geocodeProperty, inNorthAmerica } from "./ors";
-
-const ROUTE_DELAY_MS = 1600; // ORS free tier: ~40 directions/min
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+import { geocodeProperty } from "./nominatim";
+import { driveRoute, inNorthAmerica } from "./ors";
+import { QuotaError } from "./util";
 
 export function computeDrivable(hours: number | null | undefined, max: number) {
   return hours != null && hours <= max;
@@ -29,6 +28,7 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
   const start = Date.now();
   let processed = 0;
   let failed = 0;
+  let quotaExceeded = false;
 
   while (Date.now() - start < budgetMs) {
     const [p] = await db
@@ -59,7 +59,6 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
         let miles: number | null = null;
         if (lat != null && lng != null && inNorthAmerica({ lat, lng })) {
           const route = await driveRoute(origin, { lat, lng });
-          await sleep(ROUTE_DELAY_MS);
           if (route) {
             hours = route.hours;
             miles = route.miles;
@@ -75,6 +74,10 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
         .set({ ...patch, geocodeStatus: "ok", updatedAt: new Date() })
         .where(eq(property.id, p.id));
     } catch (e) {
+      if (e instanceof QuotaError) {
+        quotaExceeded = true; // leave this property pending and stop the batch
+        break;
+      }
       failed++;
       await db
         .update(property)
@@ -87,5 +90,5 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
     }
     processed++;
   }
-  return { processed, failed, remaining: await countPending() };
+  return { processed, failed, quotaExceeded, remaining: await countPending() };
 }

@@ -44,7 +44,7 @@ export default function SettingsForm({ initial }: { initial: S }) {
       while (more) {
         const r = await fetch("/api/geocode", { method: "POST" });
         const g = await r.json();
-        more = r.ok && g.remaining > 0 && g.processed > 0;
+        more = r.ok && !g.quotaExceeded && g.remaining > 0 && g.processed > 0;
       }
     }
     setBusy(false);
