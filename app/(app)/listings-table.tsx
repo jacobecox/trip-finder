@@ -25,10 +25,13 @@ type Sort = { key: SortKey; dir: 1 | -1 };
 
 const PRESETS: { label: string; sort: Sort }[] = [
   { label: "Arrival (soonest)", sort: { key: "arrivalDate", dir: 1 } },
+  { label: "Arrival (latest)", sort: { key: "arrivalDate", dir: -1 } },
   { label: "Price (low to high)", sort: { key: "priceUsd", dir: 1 } },
   { label: "Price (high to low)", sort: { key: "priceUsd", dir: -1 } },
   { label: "Distance (closest)", sort: { key: "distance", dir: 1 } },
+  { label: "Distance (furthest)", sort: { key: "distance", dir: -1 } },
   { label: "Drive time (shortest)", sort: { key: "driveHours", dir: 1 } },
+  { label: "Drive time (longest)", sort: { key: "driveHours", dir: -1 } },
 ];
 const KM_PER_MILE = 1.609344;
 
