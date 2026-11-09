@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { daysUntil, fmtDate, fmtHours } from "@/lib/format";
+import { distanceKm } from "@/lib/geo/util";
 
 export interface Row {
   id: number;
@@ -15,13 +16,40 @@ export interface Row {
   driveHours: number | null;
   isDrivable: boolean;
   geocodeStatus: string;
+  lat: number | null;
+  lng: number | null;
 }
 
-type SortKey = "arrivalDate" | "property" | "location" | "unitType" | "priceUsd" | "driveHours";
+type SortKey = "arrivalDate" | "property" | "location" | "unitType" | "priceUsd" | "driveHours" | "distance";
+type Sort = { key: SortKey; dir: 1 | -1 };
+
+const PRESETS: { label: string; sort: Sort }[] = [
+  { label: "Arrival (soonest)", sort: { key: "arrivalDate", dir: 1 } },
+  { label: "Price (low to high)", sort: { key: "priceUsd", dir: 1 } },
+  { label: "Price (high to low)", sort: { key: "priceUsd", dir: -1 } },
+  { label: "Distance (closest)", sort: { key: "distance", dir: 1 } },
+  { label: "Drive time (shortest)", sort: { key: "driveHours", dir: 1 } },
+];
+const KM_PER_MILE = 1.609344;
 
 const input = "rounded border border-black/20 bg-transparent px-2 py-1 text-sm dark:border-white/25";
 
-export default function ListingsTable({ rows }: { rows: Row[] }) {
+export default function ListingsTable({
+  rows: data,
+  origin,
+}: {
+  rows: Row[];
+  origin: { label: string; lat: number; lng: number };
+}) {
+  // straight-line miles from the origin; works for flights too, unlike drive time
+  const rows = useMemo(
+    () =>
+      data.map((r) => ({
+        ...r,
+        distance: r.lat != null && r.lng != null ? distanceKm(origin, { lat: r.lat, lng: r.lng }) / KM_PER_MILE : null,
+      })),
+    [data, origin],
+  );
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [drivableOnly, setDrivableOnly] = useState(false);
@@ -29,7 +57,8 @@ export default function ListingsTable({ rows }: { rows: Row[] }) {
   const [country, setCountry] = useState("");
   const [state, setState] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "arrivalDate", dir: 1 });
+  const [sort, setSort] = useState<Sort>(PRESETS[0].sort);
+  const preset = PRESETS.findIndex((p) => p.sort.key === sort.key && p.sort.dir === sort.dir);
 
   const units = useMemo(() => [...new Set(rows.map((r) => r.unitType))].sort(), [rows]);
   const countries = useMemo(() => [...new Set(rows.map((r) => r.country))].sort(), [rows]);
@@ -40,8 +69,8 @@ export default function ListingsTable({ rows }: { rows: Row[] }) {
 
   const shown = useMemo(() => {
     const max = maxPrice ? Number(maxPrice) : Infinity;
-    const val = (r: Row) =>
-      sort.key === "location" ? `${r.country}${r.state}${r.city}` : (r[sort.key as keyof Row] as string | number | null);
+    const val = (r: (typeof rows)[number]) =>
+      sort.key === "location" ? `${r.country}${r.state}${r.city}` : r[sort.key];
     return rows
       .filter(
         (r) =>
@@ -73,7 +102,7 @@ export default function ListingsTable({ rows }: { rows: Row[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-4 lg:grid-cols-8">
+      <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-4 lg:grid-cols-9">
         <label className="text-xs">
           Arrive from
           <input type="date" className={`${input} w-full`} value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -126,6 +155,21 @@ export default function ListingsTable({ rows }: { rows: Row[] }) {
             onChange={(e) => setMaxPrice(e.target.value)}
           />
         </label>
+        <label className="text-xs">
+          Sort by
+          <select
+            className={`${input} w-full`}
+            value={preset}
+            onChange={(e) => setSort(PRESETS[Number(e.target.value)].sort)}
+          >
+            {preset < 0 && <option value={-1}>Custom (column)</option>}
+            {PRESETS.map((p, i) => (
+              <option key={p.label} value={i}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={drivableOnly} onChange={(e) => setDrivableOnly(e.target.checked)} />
           Drivable only
@@ -146,6 +190,7 @@ export default function ListingsTable({ rows }: { rows: Row[] }) {
               {th("unitType", "Unit")}
               {th("priceUsd", "Price", "text-right")}
               {th("driveHours", "Drive")}
+              {th("distance", "Distance")}
               <th className="px-2 py-2 text-left font-medium">Drivable</th>
             </tr>
           </thead>
@@ -175,6 +220,9 @@ export default function ListingsTable({ rows }: { rows: Row[] }) {
                     <span className="text-xs text-amber-700">pending</span>
                   )}
                 </td>
+                <td className="whitespace-nowrap px-2 py-1.5 tabular-nums" title={`Straight-line from ${origin.label}`}>
+                  {r.distance != null ? `${Math.round(r.distance).toLocaleString()} mi` : "—"}
+                </td>
                 <td className="px-2 py-1.5">
                   {r.isDrivable ? (
                     <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-800">Drivable</span>
@@ -186,7 +234,7 @@ export default function ListingsTable({ rows }: { rows: Row[] }) {
             ))}
             {shown.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-2 py-6 text-center text-black/50">
+                <td colSpan={9} className="px-2 py-6 text-center text-black/50">
                   No listings match these filters.
                 </td>
               </tr>

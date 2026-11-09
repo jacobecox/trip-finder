@@ -1,11 +1,11 @@
-import { getCurrentListings } from "@/lib/queries";
+import { getCurrentListings, getSettings } from "@/lib/queries";
 import { fmtDate } from "@/lib/format";
 import ListingsTable from "./listings-table";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const { upload, rows } = await getCurrentListings();
+  const [{ upload, rows }, settings] = await Promise.all([getCurrentListings(), getSettings()]);
   if (!upload)
     return (
       <p>
@@ -17,7 +17,10 @@ export default async function Home() {
       <p className="mb-4 text-sm text-black/60 dark:text-white/60">
         {upload.filename} · uploaded {fmtDate(upload.uploadedAt.toISOString().slice(0, 10))} · {rows.length} listings
       </p>
-      <ListingsTable rows={rows} />
+      <ListingsTable
+        rows={rows}
+        origin={{ label: settings.originLabel, lat: settings.originLat, lng: settings.originLng }}
+      />
     </>
   );
 }

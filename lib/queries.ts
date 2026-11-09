@@ -33,6 +33,8 @@ export async function getCurrentListings() {
       driveHours: property.driveHours,
       isDrivable: property.isDrivable,
       geocodeStatus: property.geocodeStatus,
+      lat: property.lat,
+      lng: property.lng,
     })
     .from(listing)
     .innerJoin(property, eq(listing.propertyId, property.id))
