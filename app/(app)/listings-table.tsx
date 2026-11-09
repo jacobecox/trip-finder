@@ -161,7 +161,19 @@ export default function ListingsTable({ rows }: { rows: Row[] }) {
                 <td className="whitespace-nowrap px-2 py-1.5">{r.unitType}</td>
                 <td className="px-2 py-1.5 text-right tabular-nums">${r.priceUsd}</td>
                 <td className="whitespace-nowrap px-2 py-1.5">
-                  {r.geocodeStatus === "ok" ? fmtHours(r.driveHours) : r.geocodeStatus}
+                  {r.geocodeStatus === "ok" ? (
+                    fmtHours(r.driveHours)
+                  ) : r.geocodeStatus === "failed" ? (
+                    <a
+                      href="/properties"
+                      title="Location could not be found. Set it manually on the Properties page."
+                      className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-800"
+                    >
+                      Not located
+                    </a>
+                  ) : (
+                    <span className="text-xs text-amber-700">pending</span>
+                  )}
                 </td>
                 <td className="px-2 py-1.5">
                   {r.isDrivable ? (

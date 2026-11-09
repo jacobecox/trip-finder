@@ -54,10 +54,24 @@ export async function geocodeProperty(p: {
   country: string;
   countryCode: string;
 }): Promise<GeocodeHit | null> {
-  const place = [p.city, p.state, p.country].filter(Boolean).join(", ");
-  const city = await search(place, p.countryCode);
-  const venue = await search(`${p.name}, ${place}`, p.countryCode);
-  if (venue && (!city || distanceKm(venue, city) <= VENUE_MAX_KM_FROM_CITY)) return { ...venue, source: "osm-venue" };
+  const join = (...parts: string[]) => parts.filter(Boolean).join(", ");
+  // PDF cities can contain extra detail ("Honolulu, Oahu"); retry with progressively simpler text
+  const shortCity = p.city.split(",")[0].trim();
+  const place = join(p.city, p.state, p.country);
+  const cityQueries = [place, join(shortCity, p.state, p.country), join(p.name, p.state, p.country)];
+
+  let city: LatLng | null = null;
+  for (const q of [...new Set(cityQueries.slice(0, 2))]) {
+    city = await search(q, p.countryCode);
+    if (city) break;
+  }
+  let venue: LatLng | null = null;
+  for (const q of [...new Set([join(p.name, place), join(p.name, shortCity, p.state, p.country), cityQueries[2]])]) {
+    venue = await search(q, p.countryCode);
+    if (venue && (!city || distanceKm(venue, city) <= VENUE_MAX_KM_FROM_CITY)) break;
+    venue = null;
+  }
+  if (venue) return { ...venue, source: "osm-venue" };
   return city ? { ...city, source: "osm-city" } : null;
 }
 

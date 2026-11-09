@@ -46,7 +46,7 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
 
       if (!p.latLngOverridden && (lat == null || lng == null)) {
         const hit = await geocodeProperty(p);
-        if (!hit) throw new Error("No geocoding result");
+        if (!hit) throw new Error("Location not found. Set lat/lng manually.");
         lat = hit.lat;
         lng = hit.lng;
         patch.lat = lat;
