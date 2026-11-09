@@ -1,0 +1,21 @@
+# secrets — never commit
+.env
+.env.*
+!.env.example
+.vercel
+
+# deps / build
+node_modules
+.next
+out
+dist
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# local data
+.local-storage/
+.DS_Store
+
+# fixtures contain real inventory PDFs; keep out of the public repo
+fixtures/*.pdf
