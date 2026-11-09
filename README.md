@@ -14,7 +14,36 @@ Phase 1 (PDF upload, parsing, listings table, geocoding and drive time) is in pr
 Next.js (App Router) + TypeScript, Neon Postgres + Drizzle, Auth.js (Google), Vercel Blob,
 OpenRouteService, Tailwind. Deployable on Vercel or as a Docker container.
 
-## Configuration
-Copy `.env.example` to `.env` and fill in the values. `.env` is gitignored; never commit secrets.
+## Local setup
+1. `pnpm install`
+2. Copy `.env.example` to `.env` and fill it in:
+   - `DATABASE_URL`: a Neon dev branch connection string
+   - `AUTH_SECRET`: `npx auth secret` (or `openssl rand -base64 32`)
+   - `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`: Google Cloud OAuth client (Web). Authorized redirect URI:
+     `http://localhost:3000/api/auth/callback/google` (plus your production URL)
+   - `ALLOWED_EMAILS`: comma-separated Google emails allowed to sign in
+   - `ORS_API_KEY`: free key from openrouteservice.org
+   - `BLOB_READ_WRITE_TOKEN`: leave empty locally; PDFs are saved to `.local-storage/`
+3. `pnpm db:migrate` (applies `drizzle/` migrations)
+4. `pnpm dev`
 
-Setup, migration, and deploy instructions will be added as Phase 1 lands.
+Other commands: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm db:generate` (after editing `lib/db/schema.ts`).
+
+## Deploy (Vercel)
+1. `vercel link`, then add the Neon integration (Vercel Marketplace) and a Blob store to the project.
+2. Set `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ALLOWED_EMAILS`, `ORS_API_KEY` in Vercel env vars
+   (`DATABASE_URL` and `BLOB_READ_WRITE_TOKEN` come from the integrations).
+3. `vercel env pull .env.local`, then run `pnpm db:migrate` against the production database.
+4. `vercel deploy --prod`
+5. Add the production callback URL to the Google OAuth client:
+   `https://<your-subdomain>/api/auth/callback/google`
+
+### Custom subdomain on Cloudflare
+1. Vercel project > Settings > Domains > add `trips.example.com`.
+2. In Cloudflare DNS add a `CNAME` for `trips` pointing to the target Vercel shows (e.g. `cname.vercel-dns.com`),
+   with the proxy **off** (grey cloud, "DNS only").
+3. Wait for Vercel to verify and issue the certificate.
+
+## Docker
+`docker build -t trip-finder .` then `docker run -p 3000:3000 --env-file .env trip-finder`.
+Without `BLOB_READ_WRITE_TOKEN`, PDFs are written to `.local-storage/` inside the container.
