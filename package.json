@@ -16,6 +16,7 @@
     "@neondatabase/serverless": "^1.2.0",
     "@vercel/blob": "^2.9.0",
     "drizzle-orm": "^0.45.4",
+    "leaflet": "1.9.4",
     "next": "16.4.6",
     "next-auth": "5.0.0-beta.32",
     "pdfjs-dist": "^6.5.438",
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",
     "@tailwindcss/turbopack": "4.3.3",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

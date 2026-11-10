@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { TAGS, type Tag } from "@/lib/tags/constants";
@@ -9,8 +10,15 @@ import { tagDisplay } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
 import type { FareInfo } from "@/lib/flights/fares";
 
+// Leaflet touches `window`, so the map only loads in the browser
+const ListingsMap = dynamic(() => import("./listings-map"), {
+  ssr: false,
+  loading: () => <div className="h-[70vh] min-h-[420px] animate-pulse rounded bg-black/5 dark:bg-white/10" />,
+});
+
 export interface Row {
   id: number;
+  propertyId: number;
   arrivalDate: string;
   unitType: string;
   priceUsd: number;
@@ -90,6 +98,7 @@ export default function ListingsTable({
   const [maxPrice, setMaxPrice] = useState("");
   const [tag, setTag] = useState<Tag | "">("");
   const [sort, setSort] = useState<Sort>(PRESETS[0].sort);
+  const [view, setView] = useState<"table" | "map">("table");
   const preset = PRESETS.findIndex((p) => p.sort.key === sort.key && p.sort.dir === sort.dir);
 
   const units = useMemo(() => [...new Set(rows.map((r) => r.unitType))].sort(), [rows]);
@@ -234,6 +243,24 @@ export default function ListingsTable({
         </p>
       </div>
 
+      <div className="inline-flex overflow-hidden rounded border border-black/20 text-sm dark:border-white/25" role="tablist">
+        {(["table", "map"] as const).map((v) => (
+          <button
+            key={v}
+            role="tab"
+            aria-selected={view === v}
+            onClick={() => setView(v)}
+            className={`px-3 py-1 capitalize ${view === v ? "bg-black text-white dark:bg-white dark:text-black" : ""}`}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
+
+      {view === "map" ? (
+        <ListingsMap rows={shown.map((r) => ({ ...r, travelSummary: travelSummary(r) }))} origin={origin} />
+      ) : (
+
       <div className="overflow-x-auto rounded border border-black/10 dark:border-white/15">
         <table className="w-full min-w-[1100px] text-sm">
           <thead className="bg-black/5 dark:bg-white/10">
@@ -308,8 +335,16 @@ export default function ListingsTable({
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
+}
+
+function travelSummary(r: { travelMode: "drive" | "fly" | null; driveHours: number | null; fare: FareInfo }) {
+  if (r.travelMode === "drive") return `drive ${fmtHours(r.driveHours)}`;
+  const f = r.fare;
+  if (f && "iata" in f) return `✈ ${f.iata} · ${f.stops === 0 ? "nonstop" : `${f.stops} stop${f.stops > 1 ? "s" : ""}`}`;
+  return r.travelMode === "fly" ? "✈ est." : "";
 }
 
 function scoreTitle(r: { costScore: number | null; activityScore: number }) {
