@@ -24,10 +24,12 @@ export interface ChosenFare {
 
 /**
  * Pure: picks the arrival airport with the lowest fare + extra-drive cost. Extra drive is measured
- * against the nearest candidate and counted twice (arrive and depart).
+ * against the nearest airport that actually has a fare (small fields often have no airline service)
+ * and counted twice (arrive and depart).
  */
 export function chooseFare(options: FareOption[], airports: CandidateAirport[], s: ChooseSettings): ChosenFare | null {
-  const known = airports.filter((a) => a.driveHours != null);
+  const priced = new Set(options.map((o) => o.iata));
+  const known = airports.filter((a) => a.driveHours != null && priced.has(a.iata));
   const nearest = [...known].sort((a, b) => a.driveHours! - b.driveHours!)[0];
   let best: ChosenFare | null = null;
   for (const o of options) {

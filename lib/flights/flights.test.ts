@@ -93,6 +93,13 @@ describe("chooseFare", () => {
     expect(c.extraDriveUsd).toBeCloseTo(35 + 9.8);
   });
 
+  it("extra drive is measured from the nearest airport that has flights", () => {
+    const withTiny = [{ iata: "SBD", driveHours: 1.1, driveMiles: 40 }, ...airports];
+    const c = chooseFare([opt("ONT", 1352), opt("LGB", 1220)], withTiny, s)!;
+    expect(c).toMatchObject({ iata: "LGB", nearestIata: "ONT" });
+    expect(c.extraDriveHours).toBeCloseTo(0.7);
+  });
+
   it("small savings don't justify the drive", () => {
     expect(chooseFare([opt("ONT", 1250), opt("LAX", 1220)], airports, s)!.iata).toBe("ONT");
   });
