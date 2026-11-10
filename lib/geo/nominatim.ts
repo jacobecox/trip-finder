@@ -61,7 +61,8 @@ export async function geocodeProperty(p: {
   const cityQueries = [place, join(shortCity, p.state, p.country), join(p.name, p.state, p.country)];
 
   let city: LatLng | null = null;
-  for (const q of [...new Set(cityQueries.slice(0, 2))]) {
+  // last resort ignores the state/province, which the PDF sometimes gets wrong (e.g. Underberg "FS")
+  for (const q of [...new Set([...cityQueries.slice(0, 2), join(shortCity, p.country)])]) {
     city = await search(q, p.countryCode);
     if (city) break;
   }
