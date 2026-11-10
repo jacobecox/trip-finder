@@ -135,10 +135,12 @@ export const propertyAirport = pgTable(
 
 export interface FareOption {
   iata: string; // arrival airport
+  origin?: string; // departure airport (missing on quotes saved before DEN support = the search origin)
   priceUsd: number; // round trip, all passengers
   airline: string;
   stops: number;
-  durationMin: number; // outbound
+  durationMin: number; // outbound, door to door in the air incl. layovers
+  layovers?: { iata: string; minutes: number; overnight?: boolean }[]; // outbound; missing on older quotes
 }
 
 /** Cached SerpApi Google Flights result for one search (origin -> several airports, dates, passengers). */

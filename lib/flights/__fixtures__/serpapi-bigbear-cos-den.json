@@ -1,0 +1,138 @@
+{
+ "search_metadata": {
+  "google_flights_url": "https://www.google.com/travel/flights?placeholder"
+ },
+ "best_flights": [
+  {
+   "price": 324,
+   "total_duration": 158,
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "LAX"
+     },
+     "airline": "Frontier",
+     "duration": 158
+    }
+   ]
+  },
+  {
+   "price": 465,
+   "total_duration": 155,
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "SNA"
+     },
+     "airline": "Frontier",
+     "duration": 155
+    }
+   ]
+  },
+  {
+   "price": 474,
+   "total_duration": 145,
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "ONT"
+     },
+     "airline": "Frontier",
+     "duration": 145
+    }
+   ]
+  }
+ ],
+ "other_flights": [
+  {
+   "price": 837,
+   "total_duration": 160,
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "BUR"
+     },
+     "airline": "Southwest",
+     "duration": 160
+    }
+   ]
+  },
+  {
+   "price": 861,
+   "total_duration": 155,
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "LGB"
+     },
+     "airline": "Southwest",
+     "duration": 155
+    }
+   ]
+  },
+  {
+   "price": 1017,
+   "total_duration": 159,
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "PSP"
+     },
+     "airline": "United",
+     "duration": 159
+    }
+   ]
+  },
+  {
+   "price": 1220,
+   "total_duration": 260,
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "PHX"
+     },
+     "airline": "Southwest",
+     "duration": 125
+    },
+    {
+     "departure_airport": {
+      "id": "PHX"
+     },
+     "arrival_airport": {
+      "id": "LGB"
+     },
+     "airline": "Southwest",
+     "duration": 85
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 50,
+     "name": "Phoenix Sky Harbor International Airport",
+     "id": "PHX"
+    }
+   ]
+  }
+ ]
+}

@@ -7,7 +7,7 @@ export interface CandidateAirport {
 }
 
 export interface ChooseSettings {
-  extraDriveUsdPerHour: number;
+  extraDriveUsdPerHour: number; // value of travel time: extra driving and layovers
   mpg: number;
   gasPriceUsd: number;
 }
@@ -20,10 +20,17 @@ export interface ChosenFare {
   nearestIata: string;
   airline: string;
   stops: number;
+  durationMin: number; // outbound
+  layovers: { iata: string; minutes: number; overnight?: boolean }[] | null; // null = not recorded (older quote)
+  layoverUsd: number; // layover time, both ways (return assumed like outbound), at the travel-time rate
+  /** cheapest nonstop at any candidate airport, when the pick has stops */
+  nonstop: { iata: string; fareUsd: number; airline: string } | null;
 }
 
+const layoverHours = (o: FareOption) => (o.layovers ?? []).reduce((h, l) => h + l.minutes, 0) / 60;
+
 /**
- * Pure: picks the arrival airport with the lowest fare + extra-drive cost. Extra drive is measured
+ * Pure: picks the itinerary with the lowest fare + extra-drive + layover-time cost. Extra drive is measured
  * against the nearest airport that actually has a fare (small fields often have no airline service)
  * and counted twice (arrive and depart).
  */
@@ -47,8 +54,19 @@ export function chooseFare(options: FareOption[], airports: CandidateAirport[], 
       nearestIata: nearest?.iata ?? o.iata,
       airline: o.airline,
       stops: o.stops,
+      durationMin: o.durationMin,
+      layovers: o.layovers ?? null,
+      layoverUsd: 2 * layoverHours(o) * s.extraDriveUsdPerHour,
+      nonstop: null,
     };
-    if (!best || c.fareUsd + c.extraDriveUsd < best.fareUsd + best.extraDriveUsd) best = c;
+    const cost = (x: ChosenFare) => x.fareUsd + x.extraDriveUsd + x.layoverUsd;
+    if (!best || cost(c) < cost(best)) best = c;
+  }
+  if (best && best.stops > 0) {
+    const n = options
+      .filter((o) => o.stops === 0 && airports.some((a) => a.iata === o.iata))
+      .sort((a, b) => a.priceUsd - b.priceUsd)[0];
+    if (n) best.nonstop = { iata: n.iata, fareUsd: n.priceUsd, airline: n.airline };
   }
   return best;
 }

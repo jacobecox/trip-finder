@@ -147,8 +147,10 @@ export default function SettingsForm({ initial }: { initial: S }) {
           </label>
           {field(
             "extraDriveUsdPerHour",
-            "Extra drive ($/hour)",
-            <span className={hint}>What an extra hour of driving from a farther airport costs you</span>,
+            "Travel time ($/hour)",
+            <span className={hint}>
+              What an extra hour costs you: driving from a farther airport, or waiting on a layover
+            </span>,
           )}
           {field("airportMaxDriveHours", "Airports within (hours)")}
           {field("hubMaxDriveHours", "…or nearest big airport within (hours)")}

@@ -32,6 +32,7 @@ describe("travelCost", () => {
       fareSource: "quote",
     });
     expect(travelCost({ isDrivable: false, driveMiles: null, fare }, 1500, { ...S, tickets: 4 }).travelUsd).toBeCloseTo(1240);
+    expect(travelCost({ isDrivable: false, driveMiles: null, fare: { ...fare, layoverUsd: 75 } }, 1500, S).travelUsd).toBe(1015);
     // "no flights found" falls back to the estimate
     expect(travelCost({ isDrivable: false, driveMiles: null, fare: { status: "none" } }, 1500, S).fareSource).toBe("estimate");
   });

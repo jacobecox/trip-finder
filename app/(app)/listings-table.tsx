@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { TAGS, type Tag } from "@/lib/tags/constants";
-import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtUsd } from "@/lib/format";
+import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtMinutes, fmtUsd } from "@/lib/format";
 import { scoreListings, type ScoreSettings } from "@/lib/scoring";
 import { tagDisplay } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
@@ -330,18 +330,28 @@ function TravelNote({
   const f = r.fare;
   if (r.fareSource === "quote" && f && "iata" in f) {
     const scaled = tickets !== f.seats;
-    const label = `✈ ${f.iata} · ${f.stops === 0 ? "nonstop" : `${f.stops} stop${f.stops > 1 ? "s" : ""}`}`;
+    const label = `✈ ${f.iata} · ${f.airline}`;
+    const stops =
+      f.stops === 0
+        ? "nonstop"
+        : f.layovers?.length
+          ? f.layovers.map((l) => `${l.iata} ${fmtMinutes(l.minutes)}${l.overnight ? " overnight" : ""}`).join(", ")
+          : `${f.stops} stop${f.stops > 1 ? "s" : ""}`;
     const title = [
       `${f.airline}: $${Math.round(f.fareUsd)} round trip for ${f.seats} seats`,
+      f.stops > 0 && `${f.stops} stop${f.stops > 1 ? "s" : ""} each way${f.layovers ? "" : " (layover times not recorded yet)"}`,
+      f.durationMin > 0 && `${fmtMinutes(f.durationMin)} outbound`,
+      f.layoverUsd > 0.5 && `layover time counted as $${Math.round(f.layoverUsd)} (both ways)`,
       f.extraDriveHours > 0.05 &&
         `+${fmtHours(f.extraDriveHours)} drive vs ${f.nearestIata} each way, counted as $${Math.round(f.extraDriveUsd)}`,
+      f.nonstop && `cheapest nonstop: ${f.nonstop.iata} ${f.nonstop.airline} $${Math.round(f.nonstop.fareUsd)}`,
       scaled && `scaled to ${tickets} seats`,
       `priced ${fmtDate(f.fetchedAt.slice(0, 10))}`,
     ]
       .filter(Boolean)
       .join("\n");
     return (
-      <div className={muted} title={title}>
+      <div className={`${muted} max-w-56 whitespace-normal`} title={title}>
         {f.searchUrl ? (
           <a className="underline decoration-dotted" href={f.searchUrl} target="_blank" rel="noreferrer">
             {label}
@@ -349,7 +359,17 @@ function TravelNote({
         ) : (
           label
         )}
-        {f.extraDriveHours > 0.05 && <div>+{fmtHours(f.extraDriveHours)} vs {f.nearestIata}</div>}
+        <div className={f.stops === 0 ? "text-green-700 dark:text-green-400" : ""}>
+          {f.stops > 0 && f.layovers?.length ? `${f.stops} stop${f.stops > 1 ? "s" : ""}: ` : ""}
+          {stops}
+          {f.durationMin > 0 && ` · ${fmtMinutes(f.durationMin)}`}
+        </div>
+        {f.nonstop && (
+          <div>
+            nonstop {f.nonstop.iata} {fmtUsd(f.nonstop.fareUsd)}
+          </div>
+        )}
+        {f.extraDriveHours > 0.05 && <div>+{fmtHours(f.extraDriveHours)} drive vs {f.nearestIata}</div>}
         {scaled && <div>≈ {tickets} seats</div>}
       </div>
     );

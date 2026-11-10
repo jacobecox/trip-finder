@@ -4,6 +4,13 @@ export function fmtHours(h: number | null | undefined) {
   return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
 }
 
+/** Compact duration: 50m, 1h 25m, 6h */
+export function fmtMinutes(min: number) {
+  const m = Math.round(min);
+  if (m < 60) return `${m}m`;
+  return m % 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m / 60}h`;
+}
+
 export function daysUntil(iso: string, now = new Date()) {
   const [y, m, d] = iso.split("-").map(Number);
   const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());

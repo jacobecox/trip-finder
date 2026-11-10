@@ -22,7 +22,7 @@ export interface ScoreInput {
   lng: number | null;
   tags: Tag[];
   /** real fare for the best arrival airport (from cached SerpApi results) */
-  fare?: { fareUsd: number; extraDriveUsd: number; seats: number } | { status: "none" } | null;
+  fare?: { fareUsd: number; extraDriveUsd: number; layoverUsd?: number; seats: number } | { status: "none" } | null;
 }
 
 export interface Scored {
@@ -38,7 +38,7 @@ export interface Scored {
 
 /**
  * Round-trip travel cost in USD: gas when drivable; otherwise the real fare (+ extra drive from a
- * farther airport), scaled if the ticket count differs from what was priced; else an estimate.
+ * farther airport + layover time, both valued at the travel-time rate), scaled if the ticket count differs from what was priced; else an estimate.
  */
 export function travelCost(
   r: Pick<ScoreInput, "isDrivable" | "driveMiles" | "fare">,
@@ -50,7 +50,7 @@ export function travelCost(
   if (r.fare && "fareUsd" in r.fare)
     return {
       travelMode: "fly",
-      travelUsd: (r.fare.fareUsd * s.tickets) / Math.max(1, r.fare.seats) + r.fare.extraDriveUsd,
+      travelUsd: (r.fare.fareUsd * s.tickets) / Math.max(1, r.fare.seats) + r.fare.extraDriveUsd + (r.fare.layoverUsd ?? 0),
       fareSource: "quote",
     };
   if (distanceMiles != null)

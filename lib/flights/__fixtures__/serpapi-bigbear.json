@@ -8,22 +8,30 @@
    "total_duration": 260,
    "flights": [
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "PHX"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 125
     },
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "PHX"
      },
      "arrival_airport": {
       "id": "LGB"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 85
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 50,
+     "id": "PHX"
     }
    ]
   },
@@ -32,22 +40,30 @@
    "total_duration": 306,
    "flights": [
     {
-     "airline": "Delta",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "SLC"
-     }
+     },
+     "airline": "Delta",
+     "duration": 129
     },
     {
-     "airline": "Delta",
      "departure_airport": {
       "id": "SLC"
      },
      "arrival_airport": {
       "id": "ONT"
-     }
+     },
+     "airline": "Delta",
+     "duration": 112
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 65,
+     "id": "SLC"
     }
    ]
   },
@@ -56,22 +72,30 @@
    "total_duration": 295,
    "flights": [
     {
-     "airline": "United",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "DEN"
-     }
+     },
+     "airline": "United",
+     "duration": 80
     },
     {
-     "airline": "United",
      "departure_airport": {
       "id": "DEN"
      },
      "arrival_airport": {
       "id": "ONT"
-     }
+     },
+     "airline": "United",
+     "duration": 145
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 70,
+     "id": "DEN"
     }
    ]
   }
@@ -82,22 +106,30 @@
    "total_duration": 265,
    "flights": [
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "DEN"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 65
     },
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "DEN"
      },
      "arrival_airport": {
       "id": "LGB"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 155
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 45,
+     "id": "DEN"
     }
    ]
   },
@@ -106,22 +138,30 @@
    "total_duration": 255,
    "flights": [
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "PHX"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 115
     },
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "PHX"
      },
      "arrival_airport": {
       "id": "LGB"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 85
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 55,
+     "id": "PHX"
     }
    ]
   },
@@ -130,22 +170,30 @@
    "total_duration": 288,
    "flights": [
     {
-     "airline": "Delta",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "SLC"
-     }
+     },
+     "airline": "Delta",
+     "duration": 124
     },
     {
-     "airline": "Delta",
      "departure_airport": {
       "id": "SLC"
      },
      "arrival_airport": {
       "id": "LAX"
-     }
+     },
+     "airline": "Delta",
+     "duration": 120
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 44,
+     "id": "SLC"
     }
    ]
   },
@@ -154,22 +202,30 @@
    "total_duration": 250,
    "flights": [
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "PHX"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 115
     },
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "PHX"
      },
      "arrival_airport": {
       "id": "LAX"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 90
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 45,
+     "id": "PHX"
     }
    ]
   },
@@ -178,22 +234,30 @@
    "total_duration": 281,
    "flights": [
     {
-     "airline": "United",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "DEN"
-     }
+     },
+     "airline": "United",
+     "duration": 69
     },
     {
-     "airline": "United",
      "departure_airport": {
       "id": "DEN"
      },
      "arrival_airport": {
       "id": "LAX"
-     }
+     },
+     "airline": "United",
+     "duration": 161
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 51,
+     "id": "DEN"
     }
    ]
   },
@@ -202,22 +266,30 @@
    "total_duration": 292,
    "flights": [
     {
-     "airline": "United",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "DEN"
-     }
+     },
+     "airline": "United",
+     "duration": 61
     },
     {
-     "airline": "United",
      "departure_airport": {
       "id": "DEN"
      },
      "arrival_airport": {
       "id": "PSP"
-     }
+     },
+     "airline": "United",
+     "duration": 147
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 84,
+     "id": "DEN"
     }
    ]
   },
@@ -226,22 +298,30 @@
    "total_duration": 275,
    "flights": [
     {
-     "airline": "United",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "DEN"
-     }
+     },
+     "airline": "United",
+     "duration": 73
     },
     {
-     "airline": "United",
      "departure_airport": {
       "id": "DEN"
      },
      "arrival_airport": {
       "id": "PSP"
-     }
+     },
+     "airline": "United",
+     "duration": 146
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 56,
+     "id": "DEN"
     }
    ]
   },
@@ -250,22 +330,30 @@
    "total_duration": 255,
    "flights": [
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "PHX"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 115
     },
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "PHX"
      },
      "arrival_airport": {
       "id": "BUR"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 90
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 50,
+     "id": "PHX"
     }
    ]
   },
@@ -274,22 +362,30 @@
    "total_duration": 304,
    "flights": [
     {
-     "airline": "United",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "DEN"
-     }
+     },
+     "airline": "United",
+     "duration": 80
     },
     {
-     "airline": "United",
      "departure_airport": {
       "id": "DEN"
      },
      "arrival_airport": {
       "id": "PSP"
-     }
+     },
+     "airline": "United",
+     "duration": 146
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 78,
+     "id": "DEN"
     }
    ]
   },
@@ -298,22 +394,30 @@
    "total_duration": 245,
    "flights": [
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "PHX"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 115
     },
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "PHX"
      },
      "arrival_airport": {
       "id": "SNA"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 85
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 45,
+     "id": "PHX"
     }
    ]
   },
@@ -322,22 +426,30 @@
    "total_duration": 255,
    "flights": [
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "DEN"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 65
     },
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "DEN"
      },
      "arrival_airport": {
       "id": "ONT"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 145
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 45,
+     "id": "DEN"
     }
    ]
   },
@@ -346,22 +458,30 @@
    "total_duration": 524,
    "flights": [
     {
-     "airline": "American",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "DFW"
-     }
+     },
+     "airline": "American",
+     "duration": 130
     },
     {
-     "airline": "American",
      "departure_airport": {
       "id": "DFW"
      },
      "arrival_airport": {
       "id": "PSP"
-     }
+     },
+     "airline": "American",
+     "duration": 189
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 205,
+     "id": "DFW"
     }
    ]
   },
@@ -370,22 +490,30 @@
    "total_duration": 260,
    "flights": [
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "LAS"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 135
     },
     {
-     "airline": "Southwest",
      "departure_airport": {
       "id": "LAS"
      },
      "arrival_airport": {
       "id": "PSP"
-     }
+     },
+     "airline": "Southwest",
+     "duration": 65
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 60,
+     "id": "LAS"
     }
    ]
   },
@@ -394,22 +522,30 @@
    "total_duration": 277,
    "flights": [
     {
-     "airline": "Delta",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "SLC"
-     }
+     },
+     "airline": "Delta",
+     "duration": 129
     },
     {
-     "airline": "Delta",
      "departure_airport": {
       "id": "SLC"
      },
      "arrival_airport": {
       "id": "PSP"
-     }
+     },
+     "airline": "Delta",
+     "duration": 118
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 30,
+     "id": "SLC"
     }
    ]
   },
@@ -418,22 +554,30 @@
    "total_duration": 273,
    "flights": [
     {
-     "airline": "United",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "DEN"
-     }
+     },
+     "airline": "United",
+     "duration": 73
     },
     {
-     "airline": "United",
      "departure_airport": {
       "id": "DEN"
      },
      "arrival_airport": {
       "id": "SNA"
-     }
+     },
+     "airline": "United",
+     "duration": 154
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 46,
+     "id": "DEN"
     }
    ]
   },
@@ -442,22 +586,30 @@
    "total_duration": 369,
    "flights": [
     {
-     "airline": "American",
      "departure_airport": {
       "id": "COS"
      },
      "arrival_airport": {
       "id": "DFW"
-     }
+     },
+     "airline": "American",
+     "duration": 119
     },
     {
-     "airline": "American",
      "departure_airport": {
       "id": "DFW"
      },
      "arrival_airport": {
       "id": "SNA"
-     }
+     },
+     "airline": "American",
+     "duration": 200
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 50,
+     "id": "DFW"
     }
    ]
   }
