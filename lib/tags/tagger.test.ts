@@ -40,6 +40,10 @@ describe("matches", () => {
       at("Ossipee Mountain Ski Area (Closed)", "landuse", "winter_sports"),
       at("Camel's Hump Nordic Ski Area", "landuse", "winter_sports"),
       at("Big Bear Snow Play", "landuse", "winter_sports"),
+      at("Mackey Skate Park", "landuse", "winter_sports"),
+      at("Homewood Snowcat Adventures", "landuse", "winter_sports"),
+      at("Trapp Family Lodge", "landuse", "winter_sports"),
+      at("Tuckerman Ravine", "landuse", "winter_sports"),
       at("Big Sky Resort", "landuse", "winter_sports"),
     ]);
     expect(out.map((p) => p.name)).toEqual(["Big Sky Resort"]);

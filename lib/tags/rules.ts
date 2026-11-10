@@ -33,7 +33,8 @@ const PARKLIKE = /\b(national|state|provincial)\s+(park|forest|recreation area|s
 // Historic sites and beaches that carry park designations but aren't for hiking
 const NOT_FOR_HIKING = /historic|historical|memorial|monument|settlement|battlefield|fishing pier|state beach|\bbeach\b|ruins|fort\b|wildlife management/i;
 // Ski-ish landuse that isn't downhill skiing
-const NOT_A_SKI_AREA = /closed|abandoned|former|nordic|\bxc\b|cross[- ]country|snow ?play|tubing|sledding|ski club/i;
+const NOT_A_SKI_AREA =
+  /closed|abandoned|former|nordic|\bxc\b|cross[- ]country|snow ?play|tubing|sledding|ski club|skate|snowcat|touring|trails?\b|ravine|lodge|\binn\b/i;
 
 /** Listed city with at least this many people counts as a city trip. */
 export const CITY_MIN_POPULATION = 100_000;
@@ -77,7 +78,8 @@ export const RULES: TagRule[] = [
     tag: "hiking",
     label: "park / forest",
     radiusMiles: 15,
-    queries: ["[boundary=national_park]", "national forest", "state park"],
+    // big parks' boundaries aren't returned by the "[boundary=national_park]" form; the phrase search finds them
+    queries: ["national park", "national forest", "state park"],
     accept: (p) =>
       (is(p, "boundary", "national_park", "protected_area") || is(p, "leisure", "nature_reserve", "park")) &&
       PARKLIKE.test(p.name) &&
