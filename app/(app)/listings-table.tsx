@@ -11,7 +11,7 @@ import { TagChips } from "./tag-chips";
 import type { FareInfo } from "@/lib/flights/fares";
 import { fareFrom, originCost } from "@/lib/flights/pick";
 
-// Leaflet touches `window`, so the map only loads in the browser
+// MapLibre touches `window`, so the map only loads in the browser
 const ListingsMap = dynamic(() => import("./listings-map"), {
   ssr: false,
   loading: () => <div className="h-[70vh] min-h-[420px] animate-pulse rounded bg-black/5 dark:bg-white/10" />,
@@ -21,6 +21,7 @@ export interface Row {
   id: number;
   propertyId: number;
   arrivalDate: string;
+  checkoutDate: string;
   unitType: string;
   priceUsd: number;
   property: string;
@@ -94,8 +95,7 @@ export default function ListingsTable({
     [data, origin, scoreSettings, ticketCount],
   );
 
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [onDate, setOnDate] = useState("");
   const [drivableOnly, setDrivableOnly] = useState(false);
   const [unit, setUnit] = useState("");
   const [country, setCountry] = useState("");
@@ -120,8 +120,7 @@ export default function ListingsTable({
     return rows
       .filter(
         (r) =>
-          (!from || r.arrivalDate >= from) &&
-          (!to || r.arrivalDate <= to) &&
+          (!onDate || (r.arrivalDate <= onDate && onDate <= r.checkoutDate)) &&
           (!drivableOnly || r.isDrivable) &&
           (!unit || r.unitType === unit) &&
           (!country || r.country === country) &&
@@ -136,7 +135,7 @@ export default function ListingsTable({
         if (y == null) return -1;
         return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
       });
-  }, [rows, from, to, drivableOnly, unit, country, state, tag, maxPrice, sort]);
+  }, [rows, onDate, drivableOnly, unit, country, state, tag, maxPrice, sort]);
 
   const th = (key: SortKey, label: string, cls = "") => {
     const active = sort.key === key;
@@ -195,12 +194,14 @@ export default function ListingsTable({
           </label>
         )}
         <label className="text-xs">
-          Arrive from
-          <input type="date" className={`${input} w-full`} value={from} onChange={(e) => setFrom(e.target.value)} />
-        </label>
-        <label className="text-xs">
-          Arrive to
-          <input type="date" className={`${input} w-full`} value={to} onChange={(e) => setTo(e.target.value)} />
+          Trips on date
+          <input
+            type="date"
+            className={`${input} w-full`}
+            value={onDate}
+            title="Shows stays that include this day (check-in through check-out)"
+            onChange={(e) => setOnDate(e.target.value)}
+          />
         </label>
         <label className="text-xs">
           Activity
@@ -275,7 +276,14 @@ export default function ListingsTable({
       </div>
 
       {view === "map" ? (
-        <ListingsMap rows={shown.map((r) => ({ ...r, travelSummary: travelSummary(r) }))} origin={origin} />
+        <ListingsMap
+          rows={shown.map((r) => ({
+            ...r,
+            travelSummary: travelSummary(r),
+            flightsUrl: r.travelMode === "fly" && r.fare && "searchUrl" in r.fare ? r.fare.searchUrl : null,
+          }))}
+          origin={origin}
+        />
       ) : (
 
       <div className="overflow-x-auto rounded border border-black/10 dark:border-white/15">

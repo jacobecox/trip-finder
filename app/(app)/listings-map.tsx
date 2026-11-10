@@ -1,10 +1,10 @@
 "use client";
 
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import { useEffect, useMemo, useRef } from "react";
+import "maplibre-gl/dist/maplibre-gl.css";
+import maplibregl, { type GeoJSONSource, type MapLayerMouseEvent } from "maplibre-gl";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fmtDate, fmtUsd } from "@/lib/format";
-import { escapeHtml, pinsFor, rampColor, rankColors, type MapListing } from "@/lib/map";
+import { escapeHtml, pinsFor, rampColor, rankColors, type MapListing, type Pin } from "@/lib/map";
 
 export interface MapRow extends MapListing {
   arrivalDate: string;
@@ -12,76 +12,132 @@ export interface MapRow extends MapListing {
   totalUsd: number | null;
   travelMode: "drive" | "fly" | null;
   travelSummary: string; // e.g. "✈ LGB · 1 stop" or "drive 3h 10m"
+  flightsUrl: string | null; // Google Flights search for this stay
 }
 
-/** Leaflet + OpenStreetMap tiles. Loaded client-only (see listings-table.tsx). */
+// OpenFreeMap: free OpenStreetMap vector tiles, no API key.
+const STYLE = "https://tiles.openfreemap.org/styles/liberty";
+// English name where OSM has one, else the local name.
+const ENGLISH = ["coalesce", ["get", "name_en"], ["get", "name:en"], ["get", "name"]];
+
+function popupHtml(p: Pin<MapRow>) {
+  const top = p.listings.slice(0, 6);
+  const more = p.listings.length - top.length;
+  const travel = (l: MapRow) =>
+    l.flightsUrl
+      ? `<a href="${escapeHtml(l.flightsUrl)}" target="_blank" rel="noreferrer" style="color:inherit;text-decoration:underline dotted">${escapeHtml(l.travelSummary)} ↗</a>`
+      : escapeHtml(l.travelSummary);
+  return `
+    <div style="min-width:220px;color:#111">
+      <div style="font-weight:600">${escapeHtml(p.name)}</div>
+      <div style="color:#666;font-size:12px;margin-bottom:4px">${escapeHtml(p.location)}</div>
+      <table style="font-size:12px;border-collapse:collapse;width:100%">
+        ${top
+          .map(
+            (l) => `<tr>
+              <td style="padding:1px 6px 1px 0;font-weight:600;text-align:right">${l.score == null ? "—" : Math.round(l.score)}</td>
+              <td style="padding:1px 6px 1px 0;white-space:nowrap">${escapeHtml(fmtDate(l.arrivalDate))}</td>
+              <td style="padding:1px 6px 1px 0;text-align:right">${escapeHtml(fmtUsd(l.totalUsd))}</td>
+              <td style="padding:1px 0;color:#666;white-space:nowrap">${travel(l)}</td>
+            </tr>`,
+          )
+          .join("")}
+      </table>
+      ${more > 0 ? `<div style="color:#666;font-size:12px">+${more} more dates</div>` : ""}
+    </div>`;
+}
+
+/** MapLibre GL + OpenFreeMap vector tiles. Loaded client-only (see listings-table.tsx). */
 export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: { label: string; lat: number; lng: number } }) {
   const el = useRef<HTMLDivElement>(null);
-  const map = useRef<L.Map | null>(null);
-  const layer = useRef<L.LayerGroup | null>(null);
+  const map = useRef<maplibregl.Map | null>(null);
+  const [ready, setReady] = useState(false);
   const pins = useMemo(() => pinsFor(rows), [rows]);
   const colors = useMemo(() => rankColors(pins), [pins]);
+  const pinsRef = useRef(pins);
 
   useEffect(() => {
     if (!el.current || map.current) return;
-    const m = L.map(el.current, { worldCopyJump: true }).setView([origin.lat, origin.lng], 4);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(m);
-    L.circleMarker([origin.lat, origin.lng], { radius: 7, color: "#111", weight: 2, fillColor: "#fff", fillOpacity: 1 })
-      .bindTooltip(`Home: ${escapeHtml(origin.label)}`)
-      .addTo(m);
-    layer.current = L.layerGroup().addTo(m);
+    const m = new maplibregl.Map({
+      container: el.current,
+      style: STYLE,
+      center: [origin.lng, origin.lat],
+      zoom: 2.6,
+      attributionControl: { compact: true },
+    });
+    m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+    m.on("load", () => {
+      for (const l of m.getStyle().layers) {
+        if (l.type === "symbol" && m.getLayoutProperty(l.id, "text-field") != null)
+          m.setLayoutProperty(l.id, "text-field", ENGLISH);
+      }
+      m.addSource("pins", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      m.addLayer({
+        id: "pins",
+        type: "circle",
+        source: "pins",
+        paint: {
+          "circle-color": ["get", "color"],
+          "circle-radius": ["get", "radius"],
+          "circle-stroke-color": "#fff",
+          "circle-stroke-width": 1.5,
+          "circle-opacity": 0.95,
+        },
+      });
+      new maplibregl.Marker({ color: "#111", scale: 0.7 })
+        .setLngLat([origin.lng, origin.lat])
+        .setPopup(new maplibregl.Popup({ offset: 20 }).setText(`Home: ${origin.label}`))
+        .addTo(m);
+
+      const hover = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
+      m.on("mouseenter", "pins", (e: MapLayerMouseEvent) => {
+        m.getCanvas().style.cursor = "pointer";
+        const f = e.features?.[0];
+        if (f) hover.setLngLat(e.lngLat).setText(String(f.properties.label)).addTo(m);
+      });
+      m.on("mouseleave", "pins", () => {
+        m.getCanvas().style.cursor = "";
+        hover.remove();
+      });
+      m.on("click", "pins", (e: MapLayerMouseEvent) => {
+        const p = pinsRef.current[Number(e.features?.[0]?.properties.i)];
+        if (!p) return;
+        hover.remove();
+        new maplibregl.Popup({ maxWidth: "380px" }).setLngLat([p.lng, p.lat]).setHTML(popupHtml(p)).addTo(m);
+      });
+      setReady(true);
+    });
     map.current = m;
     return () => {
       m.remove();
       map.current = null;
+      setReady(false);
     };
   }, [origin.lat, origin.lng, origin.label]);
 
   useEffect(() => {
-    const m = map.current;
-    const g = layer.current;
-    if (!m || !g) return;
-    g.clearLayers();
-    pins.forEach((p, i) => {
-      const top = p.listings.slice(0, 6);
-      const more = p.listings.length - top.length;
-      const html = `
-        <div style="min-width:220px">
-          <div style="font-weight:600">${escapeHtml(p.name)}</div>
-          <div style="color:#666;font-size:12px;margin-bottom:4px">${escapeHtml(p.location)}</div>
-          <table style="font-size:12px;border-collapse:collapse;width:100%">
-            ${top
-              .map(
-                (l) => `<tr>
-                  <td style="padding:1px 6px 1px 0;font-weight:600;text-align:right">${l.score == null ? "—" : Math.round(l.score)}</td>
-                  <td style="padding:1px 6px 1px 0;white-space:nowrap">${escapeHtml(fmtDate(l.arrivalDate))}</td>
-                  <td style="padding:1px 6px 1px 0;text-align:right">${escapeHtml(fmtUsd(l.totalUsd))}</td>
-                  <td style="padding:1px 0;color:#666">${escapeHtml(l.travelSummary)}</td>
-                </tr>`,
-              )
-              .join("")}
-          </table>
-          ${more > 0 ? `<div style="color:#666;font-size:12px">+${more} more dates</div>` : ""}
-        </div>`;
-      L.circleMarker([p.lat, p.lng], {
-        radius: 7 + Math.min(5, p.listings.length - 1),
-        color: "#fff",
-        weight: 1.5,
-        fillColor: colors[i],
-        fillOpacity: 0.95,
-      })
-        .bindTooltip(`${escapeHtml(p.name)} · ${p.bestScore == null ? "—" : Math.round(p.bestScore)}`)
-        .bindPopup(html, { maxWidth: 360 })
-        .addTo(g);
+    const src = map.current?.getSource("pins") as GeoJSONSource | undefined;
+    if (!ready || !src) return;
+    pinsRef.current = pins;
+    src.setData({
+      type: "FeatureCollection",
+      features: pins.map((p, i) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+        // best pins are last in `pins`, so they draw on top
+        properties: {
+          i,
+          color: colors[i],
+          radius: 7 + Math.min(5, p.listings.length - 1),
+          label: `${p.name} · ${p.bestScore == null ? "—" : Math.round(p.bestScore)}`,
+        },
+      })),
     });
-  }, [pins, colors]);
+  }, [ready, pins, colors]);
 
   return (
     <div className="space-y-2">
-      <div ref={el} className="h-[70vh] min-h-[420px] w-full rounded border border-black/10 dark:border-white/15" />
+      <div ref={el} className="h-[70vh] min-h-[420px] w-full overflow-hidden rounded border border-black/10 dark:border-white/15" />
       <div className="flex flex-wrap items-center gap-3 text-xs text-black/60 dark:text-white/60">
         <span>Best score at each resort:</span>
         <span className="inline-flex items-center gap-1">

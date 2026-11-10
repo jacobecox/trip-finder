@@ -41,7 +41,7 @@ names only. Real PDFs are gitignored.
 3. **Flight pricing** via SerpApi Google Flights from COS to each property's candidate airports
    (one search covers them all). Cache 24h; run from a button with a monthly search cap.
    DEN is searched in the same request; a "Fly from" toggle shows COS, DEN or the cheaper.
-4. **Map view** (Leaflet + OpenStreetMap), pins colored by score, shares filters with table. Done.
+4. **Map view** (MapLibre GL + OpenFreeMap vector tiles, free, no key), pins colored by score, shares filters with table. Done.
 5. **Email ingest** (webhook with shared secret) + monthly "top picks" email.
 
 ## Phase 2 notes
@@ -85,8 +85,11 @@ names only. Real PDFs are gitignored.
   is per calendar month.
 
 ## Phase 4 notes
-- Map: Leaflet loaded client-only (`next/dynamic`, `ssr: false`). One pin per resort; pins are colored
+- Map: MapLibre loaded client-only (`next/dynamic`, `ssr: false`). One pin per resort; pins are colored
   by rank among those shown (raw scores cluster at 50-90 and one outlier flattens a min-max scale).
+  Labels are switched to English names (`name_en`) where OSM has them. CARTO raster tiles were tried
+  but now need an API key; the default OSM raster tiles show local-language names.
+- "Trips on date" filter: a stay matches when check-in <= date <= check-out.
 - Passengers: `tickets` seats (first two adults, rest children) + lap infants. The listings-page
   ticket override scales the fare per seat (approximate, labelled "≈").
 
