@@ -2,23 +2,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { listing, listingsUpload, property, type Db } from "@/lib/db";
+import { listing, listingsUpload, property, propertyTag, type Db } from "@/lib/db";
 import { ingestUpload } from "@/lib/ingest";
 import { runGeocodeBatch } from "@/lib/geo/geocode-job";
-import { getCurrentListings, getSettings } from "@/lib/queries";
+import { getCurrentListings, getPropertiesWithCounts, getSettings } from "@/lib/queries";
 import type { ParsedListing } from "@/lib/parser/types";
 import { QuotaError } from "@/lib/geo/util";
 import { useTestDb } from "./db";
 
 vi.mock("@/lib/auth", () => ({ requireUser: async () => ({ email: "me@example.com" }) }));
 vi.mock("@/lib/storage", () => ({ getBlobStore: () => ({ put: async () => "mem://pdf" }) }));
-vi.mock("@/lib/geo/nominatim", () => ({ geocodeProperty: vi.fn(), geocodeText: vi.fn() }));
+vi.mock("@/lib/geo/nominatim", () => ({ geocodeProperty: vi.fn(), geocodeText: vi.fn(), searchNear: vi.fn() }));
 vi.mock("@/lib/geo/ors", async (orig) => ({ ...(await orig<object>()), driveRoute: vi.fn() }));
 
 const nominatim = await import("@/lib/geo/nominatim");
 const ors = await import("@/lib/geo/ors");
 const geocodeProperty = vi.mocked(nominatim.geocodeProperty);
 const geocodeText = vi.mocked(nominatim.geocodeText);
+const searchNear = vi.mocked(nominatim.searchNear);
 const driveRoute = vi.mocked(ors.driveRoute);
 
 const { PATCH } = await import("@/app/api/properties/[id]/route");
@@ -54,6 +55,10 @@ beforeEach(async () => {
   geocodeProperty.mockReset().mockResolvedValue({ lat: 39.9, lng: -105.8, source: "osm-venue" });
   driveRoute.mockReset().mockResolvedValue({ hours: 3, miles: 150 });
   geocodeText.mockReset();
+  // every location has a beach and nothing else
+  searchNear.mockReset().mockImplementation(async (q, c) =>
+    q === "beach" ? [{ name: "Test Beach", category: "natural", type: "beach", lat: c.lat, lng: c.lng }] : [],
+  );
 });
 afterEach(() => close());
 
@@ -85,7 +90,8 @@ describe("second upload", () => {
     expect((await byName("New Resort")).geocodeStatus).toBe("pending");
 
     const res = await runGeocodeBatch();
-    expect(res).toMatchObject({ processed: 1, remaining: 0 });
+    // the new property, plus a re-tag of Indian Peaks because its location was edited
+    expect(res).toMatchObject({ processed: 2, remaining: 0 });
     expect(geocodeProperty).toHaveBeenCalledTimes(1);
     const after = await byName("Indian Peaks");
     expect(after).toMatchObject({ lat: 1, lng: 2, driveHours: 9.5, latLngOverridden: true, driveOverridden: true });
@@ -244,5 +250,77 @@ describe.skipIf(!pdf)("upload route with the fixture PDF", () => {
     expect(second.rowCount).toBe(first.rowCount);
     expect(await props()).toHaveLength(n);
     expect((await getCurrentListings()).upload?.id).toBe(second.uploadId);
+  });
+});
+
+describe("activity tags", () => {
+  const tagsOf = async (name: string) => (await getPropertiesWithCounts()).find((p) => p.name === name)!;
+
+  beforeEach(async () => {
+    await ingestUpload({ filename: "x.pdf", blobUrl: "a", warnings: [], listings: [mk("1", "Resort"), mk("2", "Empty", "Moab", "UT")] });
+  });
+
+  it("auto-tags after geocoding and flags places with no tags", async () => {
+    searchNear.mockImplementation(async (q, c) =>
+      q === "beach" && c.lat === 39.9 ? [{ name: "Test Beach", category: "natural", type: "beach", lat: c.lat, lng: c.lng }] : [],
+    );
+    geocodeProperty.mockImplementation(async (p) => ({ lat: p.name === "Resort" ? 39.9 : 38.5, lng: -105.8, source: "osm-city" }));
+    expect(await runGeocodeBatch()).toMatchObject({ processed: 2, remaining: 0 });
+    expect(await tagsOf("Resort")).toMatchObject({ tagStatus: "ok", tags: ["beach"], untagged: false });
+    expect(await tagsOf("Empty")).toMatchObject({ tagStatus: "ok", tags: [], untagged: true });
+    const { rows } = await getCurrentListings();
+    expect(rows.find((r) => r.property === "Resort")).toMatchObject({ tags: ["beach"], untagged: false });
+  });
+
+  it("untagged until tagging runs; 'reviewed' clears the flag for places with no activities", async () => {
+    expect((await tagsOf("Empty")).untagged).toBe(true);
+    searchNear.mockResolvedValue([]);
+    await runGeocodeBatch();
+    const p = await tagsOf("Empty");
+    expect(p.untagged).toBe(true);
+    await patchProp(p.id, { tagsReviewed: true });
+    expect((await tagsOf("Empty")).untagged).toBe(false);
+  });
+
+  it("manual tags win over auto tags and survive re-tagging; reset clears them", async () => {
+    await runGeocodeBatch();
+    const p = await tagsOf("Resort");
+    await patchProp(p.id, { tags: { beach: false, skiing: true } });
+    expect((await tagsOf("Resort")).tags).toEqual(["skiing"]);
+
+    await db.update(property).set({ tagStatus: "pending" });
+    await runGeocodeBatch();
+    expect((await tagsOf("Resort")).tags).toEqual(["skiing"]);
+    const beachRow = (await db.select().from(propertyTag).where(eq(propertyTag.propertyId, p.id))).find((r) => r.tag === "beach");
+    expect(beachRow).toMatchObject({ osm: true, manual: false, osmEvidence: expect.stringContaining("Test Beach") });
+
+    await patchProp(p.id, { resetTags: true });
+    expect((await tagsOf("Resort")).tags).toEqual(["beach"]);
+  });
+
+  it("moving a property (manual lat/lng) re-runs tagging at the new spot", async () => {
+    await runGeocodeBatch();
+    const p = await tagsOf("Resort");
+    await patchProp(p.id, { lat: 10, lng: -80 });
+    expect((await tagsOf("Resort")).tagStatus).toBe("pending");
+    searchNear.mockClear();
+    await runGeocodeBatch();
+    expect(searchNear).toHaveBeenCalledWith("beach", { lat: 10, lng: -80 }, 3);
+  });
+
+  it("a tagging failure is recorded without failing the location", async () => {
+    searchNear.mockRejectedValue(new Error("Nominatim 500"));
+    expect(await runGeocodeBatch()).toMatchObject({ failed: 2, remaining: 0 });
+    expect(await tagsOf("Resort")).toMatchObject({ geocodeStatus: "ok", tagStatus: "failed", tagError: "Nominatim 500" });
+  });
+
+  it("settings store scoring weights and cost inputs", async () => {
+    const cur = await getSettings();
+    const res = await PUT(
+      new Request("http://x", json({ ...cur, tickets: 5, costWeight: 0.5, tagWeights: { ...cur.tagWeights, skiing: 0 } })),
+    );
+    expect(res.status).toBe(200);
+    expect(await getSettings()).toMatchObject({ tickets: 5, costWeight: 0.5, tagWeights: { skiing: 0, kid_friendly: 3 } });
+    expect((await PUT(new Request("http://x", json({ ...cur, tickets: 0 })))).status).toBe(400);
   });
 });

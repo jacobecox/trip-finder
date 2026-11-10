@@ -1,37 +1,73 @@
 "use client";
 
 import { useState } from "react";
+import { TAGS, TAG_LABELS, type TagWeights } from "@/lib/tags/constants";
 
 interface S {
   originLabel: string;
   originLat: number;
   originLng: number;
   maxDriveHours: number;
+  costWeight: number;
+  activityWeight: number;
+  tagWeights: TagWeights;
+  tickets: number;
+  mpg: number;
+  gasPriceUsd: number;
+  flightBaseUsd: number;
+  flightPerMileUsd: number;
 }
 
+type Form = { [K in Exclude<keyof S, "tagWeights">]: string } & { tagWeights: Record<string, string> };
+
 const input = "w-full rounded border border-black/20 bg-transparent px-2 py-1.5 dark:border-white/25";
+const hint = "text-xs text-black/50 dark:text-white/50";
+const str = (s: S): Form => ({
+  ...(Object.fromEntries(Object.entries(s).map(([k, v]) => [k, typeof v === "object" ? v : String(v)])) as Form),
+  tagWeights: Object.fromEntries(TAGS.map((t) => [t, String(s.tagWeights[t] ?? 0)])),
+});
 
 export default function SettingsForm({ initial }: { initial: S }) {
-  const [label, setLabel] = useState(initial.originLabel);
-  const [lat, setLat] = useState(String(initial.originLat));
-  const [lng, setLng] = useState(String(initial.originLng));
-  const [hours, setHours] = useState(String(initial.maxDriveHours));
+  const [f, setF] = useState<Form>(str(initial));
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
+
+  const field = (k: Exclude<keyof Form, "tagWeights">, label: string, extra?: React.ReactNode) => (
+    <label className="block text-sm">
+      {label}
+      <input className={input} value={f[k]} onChange={set(k)} inputMode="decimal" required />
+      {extra}
+    </label>
+  );
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    const n = (k: Exclude<keyof Form, "tagWeights" | "originLabel">) => Number(f[k]);
+    const body = {
+      originLabel: f.originLabel,
+      originLat: n("originLat"),
+      originLng: n("originLng"),
+      maxDriveHours: n("maxDriveHours"),
+      costWeight: n("costWeight"),
+      activityWeight: n("activityWeight"),
+      tagWeights: Object.fromEntries(TAGS.map((t) => [t, Number(f.tagWeights[t])])),
+      tickets: Math.round(n("tickets")),
+      mpg: n("mpg"),
+      gasPriceUsd: n("gasPriceUsd"),
+      flightBaseUsd: n("flightBaseUsd"),
+      flightPerMileUsd: n("flightPerMileUsd"),
+    };
+    if (Object.values(body).some((v) => typeof v === "number" && Number.isNaN(v)) ||
+        Object.values(body.tagWeights).some(Number.isNaN))
+      return setMsg("Please enter numbers only.");
+
     setBusy(true);
     setMsg("");
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        originLabel: label,
-        originLat: Number(lat),
-        originLng: Number(lng),
-        maxDriveHours: Number(hours),
-      }),
+      body: JSON.stringify(body),
     });
     const j = await res.json();
     if (!res.ok) {
@@ -49,35 +85,65 @@ export default function SettingsForm({ initial }: { initial: S }) {
     }
     setBusy(false);
     setMsg("Saved.");
-    // Re-fetch so the coordinates shown reflect a server-side lookup
-    const fresh = await (await fetch("/api/settings")).json();
-    setLat(String(fresh.originLat));
-    setLng(String(fresh.originLng));
+    setF(str(await (await fetch("/api/settings")).json()));
   }
 
   return (
-    <form onSubmit={save} className="space-y-3">
-      <label className="block text-sm">
-        Origin
-        <input className={input} value={label} onChange={(e) => setLabel(e.target.value)} required />
-      </label>
-      <div className="grid grid-cols-2 gap-3">
+    <form onSubmit={save} className="space-y-6">
+      <fieldset className="space-y-3">
+        <legend className="mb-1 font-medium">Home / origin</legend>
         <label className="block text-sm">
-          Latitude
-          <input className={input} value={lat} onChange={(e) => setLat(e.target.value)} inputMode="decimal" />
+          Origin
+          <input className={input} value={f.originLabel} onChange={set("originLabel")} required />
         </label>
-        <label className="block text-sm">
-          Longitude
-          <input className={input} value={lng} onChange={(e) => setLng(e.target.value)} inputMode="decimal" />
-        </label>
-      </div>
-      <p className="text-xs text-black/50 dark:text-white/50">
-        Change the origin name and leave the coordinates alone to look them up automatically.
-      </p>
-      <label className="block text-sm">
-        Max drive hours
-        <input className={input} value={hours} onChange={(e) => setHours(e.target.value)} inputMode="decimal" />
-      </label>
+        <div className="grid grid-cols-2 gap-3">
+          {field("originLat", "Latitude")}
+          {field("originLng", "Longitude")}
+        </div>
+        <p className={hint}>Change the origin name and leave the coordinates alone to look them up automatically.</p>
+        {field("maxDriveHours", "Max drive hours")}
+      </fieldset>
+
+      <fieldset className="space-y-3">
+        <legend className="mb-1 font-medium">Trip cost (USD)</legend>
+        <div className="grid grid-cols-2 gap-3">
+          {field("tickets", "Plane tickets", <span className={hint}>Default for the listings page</span>)}
+          {field("mpg", "Car MPG")}
+          {field("gasPriceUsd", "Gas price ($/gal)")}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {field("flightBaseUsd", "Flight estimate: base ($/ticket)")}
+          {field("flightPerMileUsd", "Flight estimate: $/mile")}
+        </div>
+        <p className={hint}>
+          Drivable trips cost lodging + round-trip gas. Other trips use a rough round-trip fare per ticket (base + $/mile ×
+          straight-line miles) until real flight prices are added.
+        </p>
+      </fieldset>
+
+      <fieldset className="space-y-3">
+        <legend className="mb-1 font-medium">Scoring</legend>
+        <div className="grid grid-cols-2 gap-3">
+          {field("costWeight", "Cost weight")}
+          {field("activityWeight", "Activity weight")}
+        </div>
+        <p className={hint}>Score = cost × cost weight + activities × activity weight (weights are normalized).</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {TAGS.map((t) => (
+            <label key={t} className="block text-sm">
+              {TAG_LABELS[t]}
+              <input
+                className={input}
+                inputMode="decimal"
+                value={f.tagWeights[t]}
+                onChange={(e) => setF({ ...f, tagWeights: { ...f.tagWeights, [t]: e.target.value } })}
+              />
+            </label>
+          ))}
+        </div>
+        <p className={hint}>How much each activity matters to you. 0 ignores it.</p>
+      </fieldset>
+
       <button disabled={busy} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
         {busy ? "Saving…" : "Save"}
       </button>

@@ -61,7 +61,7 @@ export default function Uploader() {
       }
       setResult({ rowCount: json.rowCount, warnings: json.warnings });
       if (json.pending > 0) {
-        setStatus("Geocoding new properties…");
+        setStatus("Locating and tagging new properties…");
         await runGeocoding(json.pending);
       }
       setStatus("Done.");
@@ -121,7 +121,7 @@ export default function Uploader() {
             />
           </div>
           <p className="mt-1 text-xs text-black/60 dark:text-white/60">
-            Geocoded {progress.done} of {progress.total} new properties
+            Located &amp; tagged {progress.done} of {progress.total} properties (about 10 seconds each)
           </p>
         </div>
       )}

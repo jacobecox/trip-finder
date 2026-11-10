@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getCurrentListings, getSettings } from "@/lib/queries";
 import { fmtDate } from "@/lib/format";
 import ListingsTable from "./listings-table";
@@ -5,11 +6,15 @@ import ListingsTable from "./listings-table";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [{ upload, rows }, settings] = await Promise.all([getCurrentListings(), getSettings()]);
+  const [{ upload, rows }, s] = await Promise.all([getCurrentListings(), getSettings()]);
   if (!upload)
     return (
       <p>
-        No listings yet. <a className="underline" href="/upload">Upload a PDF</a> to get started.
+        No listings yet.{" "}
+        <Link className="underline" href="/upload">
+          Upload a PDF
+        </Link>{" "}
+        to get started.
       </p>
     );
   return (
@@ -19,7 +24,17 @@ export default async function Home() {
       </p>
       <ListingsTable
         rows={rows}
-        origin={{ label: settings.originLabel, lat: settings.originLat, lng: settings.originLng }}
+        origin={{ label: s.originLabel, lat: s.originLat, lng: s.originLng }}
+        scoreSettings={{
+          costWeight: s.costWeight,
+          activityWeight: s.activityWeight,
+          tagWeights: s.tagWeights,
+          tickets: s.tickets,
+          mpg: s.mpg,
+          gasPriceUsd: s.gasPriceUsd,
+          flightBaseUsd: s.flightBaseUsd,
+          flightPerMileUsd: s.flightPerMileUsd,
+        }}
       />
     </>
   );

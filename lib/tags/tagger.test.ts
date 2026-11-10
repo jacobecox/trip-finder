@@ -1,0 +1,65 @@
+import { describe, expect, it, vi } from "vitest";
+import { RULES, type Place } from "./rules";
+import { matches, tagLocation } from "./tagger";
+
+const center = { lat: 28.33, lng: -81.5 };
+const at = (name: string, category: string, type: string, milesNorth = 1): Place => ({
+  name,
+  category,
+  type,
+  lat: center.lat + milesNorth / 69,
+  lng: center.lng,
+});
+const rule = (tag: string) => RULES.find((r) => r.tag === tag)!;
+
+describe("matches", () => {
+  it("keeps accepted types inside the radius, de-duplicated by name", () => {
+    const r = rule("theme_park"); // 25 mi
+    const out = matches(r, center, [
+      at("EPCOT", "tourism", "theme_park", 10),
+      at("epcot ", "tourism", "theme_park", 10),
+      at("Far Park", "tourism", "theme_park", 40),
+      at("Theme Park Road", "highway", "residential", 1),
+    ]);
+    expect(out.map((p) => p.name)).toEqual(["EPCOT"]);
+  });
+
+  it("ski rule ignores roads and shops named 'ski'", () => {
+    const r = rule("skiing");
+    const out = matches(r, center, [
+      at("Ski Road", "highway", "residential"),
+      at("Ski & Surf", "shop", "sports"),
+      at("Eldora Mountain Resort Ski", "leisure", "sports_centre"),
+      at("Loveland", "landuse", "winter_sports"),
+    ]);
+    expect(out.map((p) => p.name)).toEqual(["Eldora Mountain Resort Ski", "Loveland"]);
+  });
+
+  it("hiking parks must look like a real park/forest", () => {
+    const r = RULES.find((x) => x.tag === "hiking" && x.label.includes("park"))!;
+    const out = matches(r, center, [
+      at("Arapaho National Forest", "leisure", "nature_reserve"),
+      at("Smith Neighborhood Park", "leisure", "park"),
+      at("Lake Louisa State Park", "leisure", "nature_reserve"),
+    ]);
+    expect(out.map((p) => p.name)).toEqual(["Arapaho National Forest", "Lake Louisa State Park"]);
+  });
+});
+
+describe("tagLocation", () => {
+  it("applies tags with evidence, stops early, and requires min counts", async () => {
+    const search = vi.fn(async (q: string) => {
+      if (q === "beach") return [at("Cocoa Beach", "natural", "beach", 2)];
+      if (q === "zoo") return [at("Cool Zoo", "tourism", "zoo", 5)];
+      if (q === "trailhead") return [at("North Trailhead", "highway", "trailhead")]; // only 1, needs 2
+      return [];
+    });
+    const tags = await tagLocation(center, search);
+    expect(tags.beach).toEqual({ present: true, evidence: "beach within 3 mi: Cocoa Beach" });
+    expect(tags.kid_friendly.present).toBe(true);
+    expect(tags.hiking.present).toBe(false);
+    expect(tags.skiing.present).toBe(false);
+    // kid-friendly matched on "zoo", so "aquarium" and "water park" were never searched
+    expect(search.mock.calls.map((c) => c[0])).not.toContain("aquarium");
+  });
+});

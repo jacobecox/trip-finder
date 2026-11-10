@@ -1,5 +1,21 @@
 import { desc, eq, sql } from "drizzle-orm";
-import { getDb, listing, listingsUpload, property, settings } from "@/lib/db";
+import { getDb, listing, listingsUpload, property, propertyTag, settings } from "@/lib/db";
+import { effectiveTags, isUntagged, type TagRow } from "@/lib/tags/effective";
+
+async function tagRowsByProperty() {
+  const rows = await getDb()
+    .select({
+      propertyId: propertyTag.propertyId,
+      tag: propertyTag.tag,
+      osm: propertyTag.osm,
+      osmEvidence: propertyTag.osmEvidence,
+      manual: propertyTag.manual,
+    })
+    .from(propertyTag);
+  const map = new Map<number, TagRow[]>();
+  for (const { propertyId, ...r } of rows) map.set(propertyId, [...(map.get(propertyId) ?? []), r]);
+  return map;
+}
 
 export async function getSettings() {
   const db = getDb();
@@ -35,15 +51,34 @@ export async function getCurrentListings() {
       geocodeStatus: property.geocodeStatus,
       lat: property.lat,
       lng: property.lng,
+      driveMiles: property.driveMiles,
+      tagStatus: property.tagStatus,
+      tagsReviewed: property.tagsReviewed,
     })
     .from(listing)
     .innerJoin(property, eq(listing.propertyId, property.id))
     .where(eq(listing.uploadId, upload.id))
     .orderBy(listing.arrivalDate, listing.id);
-  return { upload, rows };
+  const tagMap = await tagRowsByProperty();
+  return {
+    upload,
+    rows: rows.map((r) => {
+      const tags = effectiveTags(tagMap.get(r.propertyId) ?? []);
+      return { ...r, tags, untagged: isUntagged(r, tags) };
+    }),
+  };
 }
 
 export async function getPropertiesWithCounts() {
+  const [rows, tagMap] = await Promise.all([propertyRows(), tagRowsByProperty()]);
+  return rows.map((r) => {
+    const tagRows = tagMap.get(r.id) ?? [];
+    const tags = effectiveTags(tagRows);
+    return { ...r, tagRows, tags, untagged: isUntagged(r, tags) };
+  });
+}
+
+function propertyRows() {
   return getDb()
     .select({
       id: property.id,
@@ -61,6 +96,9 @@ export async function getPropertiesWithCounts() {
       isDrivable: property.isDrivable,
       latLngOverridden: property.latLngOverridden,
       driveOverridden: property.driveOverridden,
+      tagStatus: property.tagStatus,
+      tagError: property.tagError,
+      tagsReviewed: property.tagsReviewed,
       listingCount: sql<number>`(select count(*)::int from ${listing} where ${listing.propertyId} = ${property.id})`,
     })
     .from(property)

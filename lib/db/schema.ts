@@ -4,6 +4,7 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgTable,
   real,
   serial,
@@ -11,6 +12,9 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { DEFAULT_TAG_WEIGHTS, type Tag, type TagWeights } from "@/lib/tags/constants";
+
+export { TAGS, DEFAULT_TAG_WEIGHTS, type Tag, type TagWeights } from "@/lib/tags/constants";
 
 export const listingsUpload = pgTable("listings_upload", {
   id: serial("id").primaryKey(),
@@ -45,6 +49,12 @@ export const property = pgTable(
     driveMiles: real("drive_miles"),
     isDrivable: boolean("is_drivable").notNull().default(false),
 
+    // activity tagging (OSM): pending | ok | failed
+    tagStatus: text("tag_status").notNull().default("pending"),
+    tagError: text("tag_error"),
+    // user confirmed the tags (also clears the "untagged" flag for places with no activities)
+    tagsReviewed: boolean("tags_reviewed").notNull().default(false),
+
     // manual overrides survive re-geocoding
     latLngOverridden: boolean("lat_lng_overridden").notNull().default(false),
     driveOverridden: boolean("drive_overridden").notNull().default(false),
@@ -78,6 +88,27 @@ export const listing = pgTable(
   ],
 );
 
+
+/**
+ * One row per (property, tag). Auto (OSM) and manual results are kept separately;
+ * the effective value is manual ?? osm, so re-tagging never overwrites a manual choice.
+ */
+export const propertyTag = pgTable(
+  "property_tag",
+  {
+    id: serial("id").primaryKey(),
+    propertyId: integer("property_id")
+      .notNull()
+      .references(() => property.id, { onDelete: "cascade" }),
+    tag: text("tag").$type<Tag>().notNull(),
+    osm: boolean("osm"),
+    osmEvidence: text("osm_evidence"),
+    manual: boolean("manual"),
+  },
+  (t) => [uniqueIndex("property_tag_unique_idx").on(t.propertyId, t.tag)],
+);
+
+
 // Single-row table (id is always 1)
 export const settings = pgTable("settings", {
   id: integer("id").primaryKey().default(1),
@@ -85,4 +116,17 @@ export const settings = pgTable("settings", {
   originLat: doublePrecision("origin_lat").notNull().default(38.8339),
   originLng: doublePrecision("origin_lng").notNull().default(-104.8214),
   maxDriveHours: real("max_drive_hours").notNull().default(8),
+
+  // scoring: final = (costWeight*cost + activityWeight*activity) / (costWeight + activityWeight)
+  costWeight: real("cost_weight").notNull().default(0.75),
+  activityWeight: real("activity_weight").notNull().default(0.25),
+  tagWeights: jsonb("tag_weights").$type<TagWeights>().notNull().default(DEFAULT_TAG_WEIGHTS),
+
+  // trip cost inputs (USD, miles)
+  tickets: integer("tickets").notNull().default(3),
+  mpg: real("mpg").notNull().default(25),
+  gasPriceUsd: real("gas_price_usd").notNull().default(3.5),
+  // rough round-trip fare estimate per ticket until real flight prices (Phase 3)
+  flightBaseUsd: real("flight_base_usd").notNull().default(120),
+  flightPerMileUsd: real("flight_per_mile_usd").notNull().default(0.1),
 });

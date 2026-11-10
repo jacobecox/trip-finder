@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getDb, property } from "@/lib/db";
+import { getDb, property, propertyTag, TAGS } from "@/lib/db";
 import { computeDrivable } from "@/lib/geo/geocode-job";
 import { getSettings } from "@/lib/queries";
 
@@ -12,6 +12,10 @@ const Body = z.object({
   driveHours: z.number().min(0).max(200).nullable().optional(),
   driveMiles: z.number().min(0).max(100000).nullable().optional(),
   resetOverrides: z.boolean().optional(),
+  // true/false = manual choice, null = clear it (fall back to the auto suggestion)
+  tags: z.partialRecord(z.enum(TAGS), z.boolean().nullable()).optional(),
+  tagsReviewed: z.boolean().optional(),
+  resetTags: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -33,10 +37,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       lng: null,
       geocodeSource: null,
       geocodeStatus: "pending",
+      tagStatus: "pending",
     });
   } else {
     if (b.lat !== undefined || b.lng !== undefined) {
-      Object.assign(patch, { lat: b.lat ?? null, lng: b.lng ?? null, latLngOverridden: true, geocodeSource: "manual" });
+      // new location: re-run auto-tagging there
+      Object.assign(patch, {
+        lat: b.lat ?? null,
+        lng: b.lng ?? null,
+        latLngOverridden: true,
+        geocodeSource: "manual",
+        tagStatus: "pending",
+      });
       if (b.lat != null && b.lng != null) patch.geocodeStatus = "ok";
     }
     if (b.driveHours !== undefined) {
@@ -48,6 +60,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       });
     }
   }
+  if (b.tagsReviewed !== undefined) patch.tagsReviewed = b.tagsReviewed;
+  if (b.resetTags) patch.tagsReviewed = false;
   await db.update(property).set(patch).where(eq(property.id, id));
+
+  if (b.resetTags) await db.update(propertyTag).set({ manual: null }).where(eq(propertyTag.propertyId, id));
+  const manual = Object.entries(b.tags ?? {}) as [(typeof TAGS)[number], boolean | null][];
+  if (manual.length)
+    await db
+      .insert(propertyTag)
+      .values(manual.map(([tag, value]) => ({ propertyId: id, tag, manual: value })))
+      .onConflictDoUpdate({ target: [propertyTag.propertyId, propertyTag.tag], set: { manual: sql`excluded.manual` } });
   return NextResponse.json({ ok: true });
 }

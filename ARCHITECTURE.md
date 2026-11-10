@@ -10,7 +10,8 @@ or gas if drivable) and kid-friendly activities, with a map view and email inges
 - Neon Postgres (Vercel Marketplace) + Drizzle ORM with migrations
 - Vercel Blob for original PDFs, behind a small `BlobStore` interface
 - Auth.js v5, Google provider, `ALLOWED_EMAILS` allowlist
-- OpenRouteService (geocoding + driving directions)
+- Nominatim / OpenStreetMap (geocoding + activity category search, 1 req/s, no key)
+- OpenRouteService (driving directions only; its geocoder returned 403s despite quota)
 - Tailwind
 - Portable: `output: "standalone"` + Dockerfile; no Vercel-only APIs in core logic
 
@@ -26,7 +27,10 @@ names only. Real PDFs are gitignored.
 - `listing`: id, upload_id, inventory_number, property_id, arrival_date, checkout_date,
   unit_type, price_usd, created_at; unique (upload_id, inventory_number).
   Latest upload = current list; older uploads kept for history
-- `settings`: single row — origin label + lat/lng (default Colorado Springs), max_drive_hours (8)
+- `settings`: single row — origin label + lat/lng (default Colorado Springs), max_drive_hours (8),
+  cost/activity weights, per-tag weights, plane tickets (3), MPG, gas $/gal, flight-estimate base + $/mile
+- `property_tag`: (property_id, tag) unique; `osm` (auto) and `manual` kept separately,
+  effective = manual ?? osm. Property also has tag_status and tags_reviewed.
 
 ## Roadmap
 1. **PDF upload → parse → listings table**; properties geocoded with drive time from COS.
@@ -39,6 +43,18 @@ names only. Real PDFs are gitignored.
    net savings ≥ $200 after DEN gas + parking. Cache 24h. Batch via Vercel Cron.
 4. **Map view** (Leaflet + OpenStreetMap), pins colored by score, shares filters with table.
 5. **Email ingest** (webhook with shared secret) + monthly "top picks" email.
+
+## Phase 2 notes
+- Tags come from Nominatim category searches around each property (beach 3 mi, theme parks
+  25 mi, ski 20 mi, parks/trailheads 15 mi, zoo/aquarium/water park 10 mi), filtered by OSM
+  type so roads/shops named "ski" etc. don't count. ~10 s per property. Rules: `lib/tags/rules.ts`.
+  The public Overpass API was too slow/unreliable (25-45 s per query, frequent 502/504).
+- Cost (USD): drivable = lodging + round-trip gas; otherwise lodging + tickets × (base + $/mile ×
+  straight-line miles), labelled "est." until Phase 3 replaces it with real fares.
+- Scores are computed on read by a pure function (`lib/scoring.ts`), not stored, so weight and
+  ticket changes apply immediately (the listings page can override tickets client-side).
+  cost_score is min-max over the current list (cheapest = 100).
+- "Untagged" = tagging not done, or no tags found and not marked reviewed.
 
 ## Phase 1 notes
 - Geocoding runs as a resumable batch endpoint polled by the client (no long-lived functions).

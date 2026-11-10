@@ -78,3 +78,35 @@ export async function geocodeProperty(p: {
 export async function geocodeText(text: string): Promise<LatLng | null> {
   return search(text, "");
 }
+
+interface NominatimPlace {
+  name: string;
+  category: string;
+  type: string;
+  lat: string;
+  lon: string;
+}
+
+/** Category/keyword search inside a box around a point (results still need a radius check). */
+export async function searchNear(query: string, center: LatLng, radiusMiles: number, attempt = 0) {
+  await throttle("nominatim", MIN_INTERVAL_MS);
+  const dLat = radiusMiles / 69;
+  const dLng = radiusMiles / (69 * Math.max(0.1, Math.cos((center.lat * Math.PI) / 180)));
+  const qs = new URLSearchParams({
+    q: query,
+    viewbox: `${center.lng - dLng},${center.lat + dLat},${center.lng + dLng},${center.lat - dLat}`,
+    bounded: "1",
+    format: "jsonv2",
+    limit: "10",
+  });
+  const res = await fetch(`${BASE}?${qs}`, { headers: { "User-Agent": USER_AGENT, "Accept-Language": "en" } });
+  if (res.status === 403) throw new QuotaError("Nominatim");
+  if ((res.status === 429 || res.status >= 500) && attempt < 3) {
+    await sleep(3000 * 2 ** attempt);
+    return searchNear(query, center, radiusMiles, attempt + 1);
+  }
+  if (res.status === 429) throw new QuotaError("Nominatim");
+  if (!res.ok) throw new Error(`Nominatim ${res.status}`);
+  const rows = (await res.json()) as NominatimPlace[];
+  return rows.map((r) => ({ name: r.name, category: r.category, type: r.type, lat: Number(r.lat), lng: Number(r.lon) }));
+}

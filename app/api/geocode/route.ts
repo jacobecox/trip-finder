@@ -15,8 +15,11 @@ export async function GET() {
 export async function POST(req: Request) {
   if (!(await requireUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
-  if (body?.retryFailed)
-    await getDb().update(property).set({ geocodeStatus: "pending" }).where(eq(property.geocodeStatus, "failed"));
+  if (body?.retryFailed) {
+    const db = getDb();
+    await db.update(property).set({ geocodeStatus: "pending" }).where(eq(property.geocodeStatus, "failed"));
+    await db.update(property).set({ tagStatus: "pending" }).where(eq(property.tagStatus, "failed"));
+  }
   try {
     return NextResponse.json(await runGeocodeBatch());
   } catch (e) {

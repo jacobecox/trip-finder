@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { fmtHours } from "@/lib/format";
+import { TAGS, TAG_LABELS, type Tag } from "@/lib/tags/constants";
+import type { TagRow } from "@/lib/tags/effective";
 
 interface P {
   id: number;
@@ -21,6 +23,59 @@ interface P {
   latLngOverridden: boolean;
   driveOverridden: boolean;
   listingCount: number;
+  tagStatus: string;
+  tagError: string | null;
+  tagsReviewed: boolean;
+  tagRows: TagRow[];
+  tags: Tag[];
+  untagged: boolean;
+}
+
+function TagEditor({ p, send }: { p: P; send: (body: object) => Promise<void> }) {
+  const byTag = new Map(p.tagRows.map((r) => [r.tag, r]));
+  const hasManual = p.tagRows.some((r) => r.manual != null);
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-1">
+        {TAGS.map((t) => {
+          const r = byTag.get(t);
+          const on = p.tags.includes(t);
+          const manual = r?.manual != null;
+          // toggling back to the auto suggestion clears the manual choice
+          const next = !on === (r?.osm ?? false) ? null : !on;
+          return (
+            <button
+              key={t}
+              onClick={() => send({ tags: { [t]: next } })}
+              title={[r?.osmEvidence ?? "No match found nearby", manual ? "Set manually" : "Auto-suggested"].join(" · ")}
+              className={`rounded border px-1.5 py-0.5 text-[11px] ${
+                on
+                  ? manual
+                    ? "border-sky-700 bg-sky-700 text-white"
+                    : "border-sky-300 bg-sky-100 text-sky-900"
+                  : "border-black/15 text-black/40 line-through dark:border-white/20 dark:text-white/40"
+              }`}
+            >
+              {TAG_LABELS[t]}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-[11px]">
+        {p.tagStatus === "pending" && <span className="text-amber-700">auto-tagging pending</span>}
+        {p.tagStatus === "failed" && <span className="text-red-700">tagging failed: {p.tagError}</span>}
+        {p.untagged && <span className="rounded bg-amber-100 px-1.5 text-amber-900">untagged</span>}
+        <button className="underline" onClick={() => send({ tagsReviewed: !p.tagsReviewed })}>
+          {p.tagsReviewed ? "Reviewed ✓" : "Mark reviewed"}
+        </button>
+        {hasManual && (
+          <button className="text-black/60 underline dark:text-white/60" onClick={() => send({ resetTags: true })}>
+            Reset tags
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 const input = "w-24 rounded border border-black/20 bg-transparent px-1.5 py-1 text-sm dark:border-white/25";
@@ -33,14 +88,17 @@ function Row({ p }: { p: P }) {
   const [hours, setHours] = useState(p.driveHours != null ? String(+p.driveHours.toFixed(2)) : "");
   const [err, setErr] = useState("");
 
-  async function send(body: object) {
+  async function send(body: object): Promise<void> {
     setErr("");
     const res = await fetch(`/api/properties/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!res.ok) return setErr("Save failed");
+    if (!res.ok) {
+      setErr("Save failed");
+      return;
+    }
     setEdit(false);
     router.refresh();
   }
@@ -54,7 +112,8 @@ function Row({ p }: { p: P }) {
     }
     if (hours !== (p.driveHours != null ? String(+p.driveHours.toFixed(2)) : "")) body.driveHours = num(hours);
     if ([body.lat, body.lng, body.driveHours].some((v) => v != null && Number.isNaN(v))) return setErr("Invalid number");
-    return Object.keys(body).length ? send(body) : setEdit(false);
+    if (Object.keys(body).length) return send(body);
+    setEdit(false);
   };
 
   const badge =
@@ -100,6 +159,9 @@ function Row({ p }: { p: P }) {
           </>
         )}
       </td>
+      <td className="px-2 py-1.5">
+        <TagEditor p={p} send={send} />
+      </td>
       <td className="whitespace-nowrap px-2 py-1.5 text-right">
         {edit ? (
           <>
@@ -132,7 +194,12 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const queued = rows.filter((r) => r.geocodeStatus !== "ok").length;
+  const [reviewOnly, setReviewOnly] = useState(false);
+  const queued = rows.filter(
+    (r) => r.geocodeStatus !== "ok" || (r.lat != null && r.tagStatus !== "ok"),
+  ).length;
+  const needsReview = rows.filter((r) => r.untagged || r.geocodeStatus === "failed").length;
+  const shown = reviewOnly ? rows.filter((r) => r.untagged || r.geocodeStatus === "failed") : rows;
 
   async function run(retryFailed: boolean) {
     setBusy(true);
@@ -159,24 +226,33 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
   return (
     <div className="space-y-3">
       {note && <p className="text-sm text-amber-700">{note}</p>}
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={reviewOnly} onChange={(e) => setReviewOnly(e.target.checked)} />
+        Needs review only ({needsReview})
+      </label>
+      <p className="text-xs text-black/50 dark:text-white/50">
+        Activity tags are auto-suggested from OpenStreetMap (light chips). Click a tag to toggle it; manual choices
+        (dark chips) are kept when tags are re-run. Hover a tag to see what was found nearby.
+      </p>
       {queued > 0 && (
         <button disabled={busy} onClick={() => run(true)} className="rounded border px-3 py-1 text-sm disabled:opacity-50">
-          {busy ? "Geocoding…" : `Geocode / retry ${queued} unfinished`}
+          {busy ? "Working…" : `Locate & tag ${queued} unfinished`}
         </button>
       )}
       <div className="overflow-x-auto rounded border border-black/10 dark:border-white/15">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[1000px] text-sm">
           <thead className="bg-black/5 dark:bg-white/10">
             <tr>
               <th className="px-2 py-2 text-left font-medium">Property</th>
               <th className="px-2 py-2 text-left font-medium">Geocode</th>
               <th className="px-2 py-2 text-left font-medium">Lat / Lng</th>
               <th className="px-2 py-2 text-left font-medium">Drive</th>
+              <th className="px-2 py-2 text-left font-medium">Activities</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {rows.map((p) => (
+            {shown.map((p) => (
               <Row key={`${p.id}-${p.lat}-${p.lng}-${p.driveHours}`} p={p} />
             ))}
           </tbody>

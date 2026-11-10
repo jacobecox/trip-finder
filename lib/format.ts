@@ -19,3 +19,12 @@ export function fmtDate(iso: string) {
     timeZone: "UTC",
   });
 }
+
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+export function fmtUsd(v: number | null | undefined) {
+  return v == null ? "—" : usd.format(v);
+}
+
+export function fmtMiles(v: number | null | undefined) {
+  return v == null ? "—" : `${Math.round(v).toLocaleString("en-US")} mi`;
+}
