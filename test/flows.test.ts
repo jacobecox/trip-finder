@@ -19,7 +19,7 @@ vi.mock("@/lib/geo/nominatim", () => ({
   cityPopulation: vi.fn(async () => null),
 }));
 vi.mock("@/lib/geo/ors", async (orig) => ({ ...(await orig<object>()), driveRoute: vi.fn(), driveMatrix: vi.fn() }));
-vi.mock("@/lib/geo/osrm", () => ({ osrmMatrix: vi.fn() }));
+vi.mock("@/lib/geo/osrm", () => ({ osrmMatrix: vi.fn(), osrmRoute: vi.fn() }));
 vi.mock("@/lib/flights/serpapi", async (orig) => ({ ...(await orig<object>()), searchFares: vi.fn() }));
 
 const nominatim = await import("@/lib/geo/nominatim");
@@ -30,6 +30,7 @@ const searchNear = vi.mocked(nominatim.searchNear);
 const driveRoute = vi.mocked(ors.driveRoute);
 const driveMatrix = vi.mocked(ors.driveMatrix);
 const osrmMatrix = vi.mocked((await import("@/lib/geo/osrm")).osrmMatrix);
+const osrmRoute = vi.mocked((await import("@/lib/geo/osrm")).osrmRoute);
 const searchFares = vi.mocked((await import("@/lib/flights/serpapi")).searchFares);
 const { runFareBatch, fareStatus } = await import("@/lib/flights/job");
 
@@ -69,6 +70,7 @@ beforeEach(async () => {
   driveMatrix.mockReset().mockImplementation(async (_from, to) => to.map((_, i) => ({ hours: (i + 1) / 2, miles: (i + 1) * 30 })));
   searchFares.mockReset();
   osrmMatrix.mockReset();
+  osrmRoute.mockReset();
   geocodeText.mockReset();
   // every location has a beach and nothing else
   searchNear.mockReset().mockImplementation(async (q, c) =>
@@ -462,6 +464,14 @@ describe("flight fares", () => {
     expect(await runGeocodeBatch()).toMatchObject({ quotaExceeded: false, remaining: 0 });
     expect(osrmMatrix).toHaveBeenCalled();
     expect((await airportsOf("Resort")).map((a) => a.iata)).toContain("MCO");
+  });
+
+  it("drive times fall back to OSRM when ORS's directions quota is used up", async () => {
+    await db.update(property).set({ geocodeStatus: "pending" });
+    driveRoute.mockRejectedValue(new QuotaError("OpenRouteService directions"));
+    osrmRoute.mockImplementation(async (_o, to) => (to.lat > 39 ? { hours: 2.1, miles: 95 } : null));
+    expect(await runGeocodeBatch()).toMatchObject({ quotaExceeded: false, remaining: 0 });
+    expect(await byName("Near")).toMatchObject({ driveHours: 2.1, isDrivable: true });
   });
 
   it("changing the airport rules in settings rebuilds airport lists", async () => {

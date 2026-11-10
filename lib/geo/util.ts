@@ -1,5 +1,5 @@
 export class QuotaError extends Error {
-  constructor(service: string) {
+  constructor(public service: string) {
     super(`${service} rate/quota limit reached; try again later`);
   }
 }

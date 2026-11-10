@@ -259,6 +259,14 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
   const needsReview = rows.filter((r) => r.untagged || r.geocodeStatus === "failed").length;
   const shown = reviewOnly ? rows.filter((r) => r.untagged || r.geocodeStatus === "failed") : rows;
 
+  function orsNote(q: Record<string, { limit: number; remaining: number; resetAt: string | null }>) {
+    const parts = Object.entries(q).map(([k, v]) => `${k} ${v.remaining}/${v.limit}`);
+    const reset = Object.values(q).find((v) => v.resetAt)?.resetAt;
+    return parts.length
+      ? `OpenRouteService left: ${parts.join(", ")}${reset ? ` (renews ${new Date(reset).toLocaleString()})` : ""}`
+      : "";
+  }
+
   async function run(retryFailed: boolean) {
     setBusy(true);
     try {
@@ -272,7 +280,8 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
         });
         first = false;
         const j = await res.json();
-        if (j.quotaExceeded) setNote("Geocoding rate limit reached. Try again later.");
+        if (j.quotaExceeded) setNote(`${j.quotaService ?? "Geocoding"} limit reached. Try again later.`);
+        else if (j.ors) setNote(orsNote(j.ors));
         more = res.ok && !j.quotaExceeded && j.remaining > 0 && j.processed > 0;
       }
     } finally {

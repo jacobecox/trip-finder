@@ -5,6 +5,11 @@ const BASE = "https://router.project-osrm.org";
 const USER_AGENT = "trip-finder/0.1 (personal project)";
 const M_PER_MILE = 1609.344;
 
+/** One route via OSRM; null when unroutable. */
+export async function osrmRoute(from: LatLng, to: LatLng) {
+  return (await osrmMatrix(from, [to]))[0];
+}
+
 /** Drive time/distance from one point to many; null entries are unroutable (e.g. across water). */
 export async function osrmMatrix(
   from: LatLng,

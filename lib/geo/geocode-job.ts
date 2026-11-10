@@ -4,8 +4,8 @@ import { airportByIata, nearbyAirports, selectCandidates, type CandidateRules } 
 import { getSettings } from "@/lib/queries";
 import { applyDerived, tagLocation } from "@/lib/tags/tagger";
 import { cityPopulation, geocodeProperty, searchNear } from "./nominatim";
-import { driveMatrix, driveRoute, inNorthAmerica } from "./ors";
-import { osrmMatrix } from "./osrm";
+import { driveMatrix, driveRoute, inNorthAmerica, orsQuota } from "./ors";
+import { osrmMatrix, osrmRoute } from "./osrm";
 import { QuotaError } from "./util";
 
 export function computeDrivable(hours: number | null | undefined, max: number) {
@@ -53,7 +53,7 @@ export async function saveAirports(propertyId: number, at: { lat: number; lng: n
   const near = nearbyAirports(at);
   const ask = [...near.map((a) => a.iata), ...pinned.filter((i) => !near.some((a) => a.iata === i))];
   const points = ask.map((i) => airportByIata(i)!).filter(Boolean);
-  // ORS's matrix quota has run out well below its advertised limit; OSRM gives near-identical times
+  // if ORS's quota runs out, OSRM gives near-identical times (a few minutes longer)
   const drives = await driveMatrix(at, points).catch((e) => {
     if (e instanceof QuotaError) return osrmMatrix(at, points);
     throw e;
@@ -94,6 +94,7 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
   let processed = 0;
   let failed = 0;
   let quotaExceeded = false;
+  let quotaService: string | null = null;
 
   while (Date.now() - start < budgetMs) {
     const [p] = await db.select().from(property).where(needsWork).orderBy(asc(property.id)).limit(1);
@@ -115,7 +116,11 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
           let hours: number | null = null;
           let miles: number | null = null;
           if (lat != null && lng != null && inNorthAmerica({ lat, lng })) {
-            const route = await driveRoute(origin, { lat, lng });
+            const to = { lat, lng };
+            const route = await driveRoute(origin, to).catch((e) => {
+              if (e instanceof QuotaError) return osrmRoute(origin, to);
+              throw e;
+            });
             if (route) ({ hours, miles } = route);
           }
           Object.assign(patch, {
@@ -132,6 +137,7 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
     } catch (e) {
       if (e instanceof QuotaError) {
         quotaExceeded = true; // leave this property pending and stop the batch
+        quotaService = e.service;
         break;
       }
       failed++;
@@ -150,6 +156,7 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
       } catch (e) {
         if (e instanceof QuotaError) {
           quotaExceeded = true;
+          quotaService = e.service;
           break;
         }
         failed++;
@@ -171,6 +178,7 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
       } catch (e) {
         if (e instanceof QuotaError) {
           quotaExceeded = true;
+          quotaService = e.service;
           break;
         }
         failed++;
@@ -182,5 +190,5 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
     }
     processed++;
   }
-  return { processed, failed, quotaExceeded, remaining: await countPending() };
+  return { processed, failed, quotaExceeded, quotaService, ors: orsQuota(), remaining: await countPending() };
 }

@@ -22,7 +22,8 @@ OpenRouteService, Tailwind. Deployable on Vercel or as a Docker container.
    - `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`: Google Cloud OAuth client (Web). Authorized redirect URI:
      `http://localhost:3000/api/auth/callback/google` (plus your production URL)
    - `ALLOWED_EMAILS`: comma-separated Google emails allowed to sign in
-   - `ORS_API_KEY`: free key from openrouteservice.org
+   - `ORS_API_KEY`: free key from openrouteservice.org (calls go to `api.heigit.org`; the old
+     `api.openrouteservice.org` host is deprecated and enforced much lower quotas)
    - `SERPAPI_API_KEY`: serpapi.com (free plan: 250 searches/month) for real flight fares
    - `BLOB_READ_WRITE_TOKEN`: leave empty locally; PDFs are saved to `.local-storage/`
 3. `pnpm db:migrate` (applies `drizzle/` migrations)
