@@ -1,3 +1,4 @@
+import type { Place } from "@/lib/tags/rules";
 import { type LatLng, QuotaError, distanceKm, sleep, throttle } from "./util";
 
 const BASE = "https://nominatim.openstreetmap.org/search";
@@ -76,18 +77,23 @@ export async function geocodeProperty(p: {
   return city ? { ...city, source: "osm-city" } : null;
 }
 
+const SETTLEMENT = new Set(["city", "town", "village", "municipality", "suburb", "borough", "city_district"]);
+
 /** Population of the listed city (OSM extratags), trying the simplified name too. */
 export async function cityPopulation(p: { city: string; state: string; country: string; countryCode: string }) {
   const short = p.city.split(",")[0].trim();
   for (const q of [...new Set([[p.city, p.state, p.country], [short, p.state, p.country]].map((x) => x.filter(Boolean).join(", ")))]) {
     await throttle("nominatim", MIN_INTERVAL_MS);
-    const qs = new URLSearchParams({ q, format: "jsonv2", limit: "1", extratags: "1" });
+    const qs = new URLSearchParams({ q, format: "jsonv2", limit: "3", extratags: "1" });
     const cc = A2[p.countryCode.toUpperCase()];
     if (cc) qs.set("countrycodes", cc);
     const res = await fetch(`${BASE}?${qs}`, { headers: { "User-Agent": USER_AGENT, "Accept-Language": "en" } });
     if (res.status === 403 || res.status === 429) throw new QuotaError("Nominatim");
     if (!res.ok) throw new Error(`Nominatim ${res.status}`);
-    const [hit] = (await res.json()) as { extratags?: Record<string, string> }[];
+    // skip counties etc. ("Napa, CA" first matches Napa County)
+    const hit = ((await res.json()) as { addresstype?: string; extratags?: Record<string, string> }[]).find(
+      (h) => !h.addresstype || SETTLEMENT.has(h.addresstype),
+    );
     if (hit) {
       const pop = Number(hit.extratags?.population?.replace(/[^\d]/g, ""));
       return Number.isFinite(pop) && pop > 0 ? pop : null;
@@ -106,10 +112,11 @@ interface NominatimPlace {
   type: string;
   lat: string;
   lon: string;
+  extratags?: Record<string, string> | null;
 }
 
 /** Category/keyword search inside a box around a point (results still need a radius check). */
-export async function searchNear(query: string, center: LatLng, radiusMiles: number, attempt = 0) {
+export async function searchNear(query: string, center: LatLng, radiusMiles: number, attempt = 0): Promise<Place[]> {
   await throttle("nominatim", MIN_INTERVAL_MS);
   const dLat = radiusMiles / 69;
   const dLng = radiusMiles / (69 * Math.max(0.1, Math.cos((center.lat * Math.PI) / 180)));
@@ -119,6 +126,7 @@ export async function searchNear(query: string, center: LatLng, radiusMiles: num
     bounded: "1",
     format: "jsonv2",
     limit: "10",
+    extratags: "1",
   });
   const res = await fetch(`${BASE}?${qs}`, { headers: { "User-Agent": USER_AGENT, "Accept-Language": "en" } });
   if (res.status === 403) throw new QuotaError("Nominatim");
@@ -129,5 +137,12 @@ export async function searchNear(query: string, center: LatLng, radiusMiles: num
   if (res.status === 429) throw new QuotaError("Nominatim");
   if (!res.ok) throw new Error(`Nominatim ${res.status}`);
   const rows = (await res.json()) as NominatimPlace[];
-  return rows.map((r) => ({ name: r.name, category: r.category, type: r.type, lat: Number(r.lat), lng: Number(r.lon) }));
+  return rows.map((r) => ({
+    name: r.name,
+    category: r.category,
+    type: r.type,
+    lat: Number(r.lat),
+    lng: Number(r.lon),
+    notable: Boolean(r.extratags?.wikidata || r.extratags?.wikipedia),
+  }));
 }

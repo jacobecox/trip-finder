@@ -58,6 +58,10 @@ names only. Real PDFs are gitignored.
 - Tags: beach, theme_park, zoo_aquarium, hiking, skiing (nearby searches), scenic (derived from
   beach/hiking/skiing), city (listed city population >= 100k via OSM extratags). "Kid-friendly"
   was dropped as misleading; adults-only/casino suitability isn't detectable from OSM.
+- Tag searches use Nominatim's exact "[key=value]" category queries (plain words match names:
+  "ski" found roads and shops). Theme parks need a Wikidata link to count; zoos need a zoo-like
+  name or Wikidata. Hiking counts only national/state/provincial parks and forests and wilderness
+  areas, not historic sites or trailheads. A town named "... Beach"/"Playa ..." counts as beach.
 
 ## Phase 1 notes
 - Geocoding runs as a resumable batch endpoint polled by the client (no long-lived functions).

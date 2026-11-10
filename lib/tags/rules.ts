@@ -8,6 +8,8 @@ export interface Place {
   type: string; // OSM value, e.g. "theme_park"
   lat: number;
   lng: number;
+  /** Has a Wikidata/Wikipedia link: a decent proxy for "a real attraction" */
+  notable?: boolean;
 }
 
 export interface TagRule {
@@ -25,67 +27,71 @@ const is = (p: Place, category: string, ...types: string[]) => p.category === ca
 const BEACHLIKE = /\b(beach|playa|plage|praia|spiaggia|strand|shore|sands?|cove)\b/i;
 // Splash pads, public pools and aquatic centres are tagged water_park but aren't destinations
 const NOT_A_WATER_PARK = /splash\s*pad|spray\s*(ground|park)|sprayground|aquatic|pool|water\s*wall/i;
-const PARKLIKE = /\b(national|state)\s+(park|forest|monument|recreation area|seashore)\b|\bwilderness\b/i;
+// Small or unnamed places tagged zoo/aquarium (ponds, gardens) need a telling name or a Wikidata link
+const ZOOLIKE = /zoo|aquarium|wildlife|safari|animal|bird|reptile|gator|alligator|sea life|marine|tierpark|wildpark|acuario|zool[oó]gico/i;
+const PARKLIKE = /\b(national|state|provincial)\s+(park|forest|recreation area|seashore|lakeshore)\b|\bnational\s+grassland\b|\bwilderness\b|\bnationalpark\b|\bparque nacional\b/i;
+// Historic sites and beaches that carry park designations but aren't for hiking
+const NOT_FOR_HIKING = /historic|historical|memorial|monument|settlement|battlefield|fishing pier|state beach|\bbeach\b|ruins|fort\b|wildlife management/i;
+// Ski-ish landuse that isn't downhill skiing
+const NOT_A_SKI_AREA = /closed|abandoned|former|nordic|\bxc\b|cross[- ]country|snow ?play|tubing|sledding|ski club/i;
 
 /** Listed city with at least this many people counts as a city trip. */
 export const CITY_MIN_POPULATION = 100_000;
 /** Scenic is derived from these (no extra lookups). */
 export const SCENIC_FROM = ["beach", "hiking", "skiing"] as const;
+/** If no beach is found nearby but the town is named for one (Cocoa Beach, Playa del Carmen), trust the name. */
+export const BEACH_TOWN = /\b(beach|playa|plage|praia)\b/i;
 
-/** Search-based rules. Several may feed one tag; any satisfied rule applies it. Radii are in miles. */
+/**
+ * Search-based rules. Several may feed one tag; any satisfied rule applies it. Radii are in miles.
+ * Queries use Nominatim's "[key=value]" form, which matches the OSM category exactly instead of
+ * names (plain "ski" found "Ski Run Road" and missed Big Sky Resort).
+ */
 export const RULES: TagRule[] = [
   {
     tag: "beach",
     label: "beach",
     radiusMiles: 3,
-    queries: ["beach"],
-    accept: (p) => is(p, "natural", "beach") && BEACHLIKE.test(p.name),
+    queries: ["[natural=beach]"],
+    accept: (p) => is(p, "natural", "beach") && (BEACHLIKE.test(p.name) || !!p.notable),
     minCount: 1,
   },
   {
     tag: "theme_park",
     label: "theme park",
     radiusMiles: 25,
-    queries: ["theme park"],
-    accept: (p) => is(p, "tourism", "theme_park"),
+    queries: ["[tourism=theme_park]"],
+    // OSM tags luaus, trampoline parks and mini golf as theme_park too; real parks have Wikidata
+    accept: (p) => is(p, "tourism", "theme_park") && !!p.notable,
     minCount: 1,
   },
   {
     tag: "skiing",
     label: "ski area",
     radiusMiles: 20,
-    queries: ["ski resort", "ski"],
-    accept: (p) =>
-      is(p, "landuse", "winter_sports") ||
-      p.category === "aerialway" ||
-      (is(p, "leisure", "sports_centre", "resort") && /\bski/i.test(p.name)),
+    queries: ["[landuse=winter_sports]"],
+    accept: (p) => is(p, "landuse", "winter_sports") && !!p.name && !NOT_A_SKI_AREA.test(p.name),
     minCount: 1,
   },
   {
     tag: "hiking",
     label: "park / forest",
     radiusMiles: 15,
-    queries: ["national park", "national forest", "state park"],
+    queries: ["[boundary=national_park]", "national forest", "state park"],
     accept: (p) =>
-      is(p, "boundary", "national_park", "protected_area") ||
-      (is(p, "leisure", "nature_reserve", "park") && PARKLIKE.test(p.name)),
+      (is(p, "boundary", "national_park", "protected_area") || is(p, "leisure", "nature_reserve", "park")) &&
+      PARKLIKE.test(p.name) &&
+      !NOT_FOR_HIKING.test(p.name),
     minCount: 1,
-  },
-  {
-    tag: "hiking",
-    label: "trailhead",
-    radiusMiles: 15,
-    queries: ["trailhead"],
-    accept: (p) => is(p, "highway", "trailhead") || (!["highway"].includes(p.category) && /trailhead/i.test(p.name)),
-    minCount: 2,
   },
   {
     tag: "zoo_aquarium",
     label: "zoo / aquarium / water park",
     radiusMiles: 10,
-    queries: ["zoo", "aquarium", "water park"],
+    queries: ["[tourism=zoo]", "[tourism=aquarium]", "[leisure=water_park]"],
     accept: (p) =>
-      is(p, "tourism", "zoo", "aquarium") || (is(p, "leisure", "water_park") && !NOT_A_WATER_PARK.test(p.name)),
+      (is(p, "tourism", "zoo", "aquarium") && (ZOOLIKE.test(p.name) || !!p.notable)) ||
+      (is(p, "leisure", "water_park") && !!p.name && !NOT_A_WATER_PARK.test(p.name)),
     minCount: 1,
   },
 ];

@@ -3,12 +3,13 @@ import { RULES, type Place } from "./rules";
 import { applyDerived, matches, tagLocation } from "./tagger";
 
 const center = { lat: 28.33, lng: -81.5 };
-const at = (name: string, category: string, type: string, milesNorth = 1): Place => ({
+const at = (name: string, category: string, type: string, milesNorth = 1, notable = false): Place => ({
   name,
   category,
   type,
   lat: center.lat + milesNorth / 69,
   lng: center.lng,
+  notable,
 });
 const rule = (tag: string) => RULES.find((r) => r.tag === tag)!;
 
@@ -16,23 +17,32 @@ describe("matches", () => {
   it("keeps accepted types inside the radius, de-duplicated by name", () => {
     const r = rule("theme_park"); // 25 mi
     const out = matches(r, center, [
-      at("EPCOT", "tourism", "theme_park", 10),
-      at("epcot ", "tourism", "theme_park", 10),
-      at("Far Park", "tourism", "theme_park", 40),
+      at("EPCOT", "tourism", "theme_park", 10, true),
+      at("epcot ", "tourism", "theme_park", 10, true),
+      at("Far Park", "tourism", "theme_park", 40, true),
       at("Theme Park Road", "highway", "residential", 1),
     ]);
     expect(out.map((p) => p.name)).toEqual(["EPCOT"]);
   });
 
-  it("ski rule ignores roads and shops named 'ski'", () => {
-    const r = rule("skiing");
-    const out = matches(r, center, [
-      at("Ski Road", "highway", "residential"),
-      at("Ski & Surf", "shop", "sports"),
-      at("Eldora Mountain Resort Ski", "leisure", "sports_centre"),
-      at("Loveland", "landuse", "winter_sports"),
+  it("theme parks need a Wikidata link (skips luaus, trampoline parks)", () => {
+    const out = matches(rule("theme_park"), center, [
+      at("Germaine's Luau", "tourism", "theme_park"),
+      at("Urban Air Adventure Park", "tourism", "theme_park"),
+      at("Dollywood", "tourism", "theme_park", 1, true),
     ]);
-    expect(out.map((p) => p.name)).toEqual(["Eldora Mountain Resort Ski", "Loveland"]);
+    expect(out.map((p) => p.name)).toEqual(["Dollywood"]);
+  });
+
+  it("ski areas: downhill winter_sports only", () => {
+    const out = matches(rule("skiing"), center, [
+      at("Ski Road", "highway", "residential"),
+      at("Ossipee Mountain Ski Area (Closed)", "landuse", "winter_sports"),
+      at("Camel's Hump Nordic Ski Area", "landuse", "winter_sports"),
+      at("Big Bear Snow Play", "landuse", "winter_sports"),
+      at("Big Sky Resort", "landuse", "winter_sports"),
+    ]);
+    expect(out.map((p) => p.name)).toEqual(["Big Sky Resort"]);
   });
 
   it("hiking parks must look like a real park/forest", () => {
@@ -41,6 +51,10 @@ describe("matches", () => {
       at("Arapaho National Forest", "leisure", "nature_reserve"),
       at("Smith Neighborhood Park", "leisure", "park"),
       at("Lake Louisa State Park", "leisure", "nature_reserve"),
+      at("Jamestown Settlement", "boundary", "protected_area"),
+      at("Pearl Harbor National Memorial", "boundary", "national_park"),
+      at("Doheny State Beach", "boundary", "protected_area"),
+      at("Fort Pulaski National Monument", "boundary", "national_park"),
     ]);
     expect(out.map((p) => p.name)).toEqual(["Arapaho National Forest", "Lake Louisa State Park"]);
   });
@@ -57,7 +71,7 @@ describe("tightened rules", () => {
     expect(out.map((p) => p.name)).toEqual(["Cocoa Beach", "Playa del Coco"]);
   });
 
-  it("kid-friendly skips splash pads, pools and aquatic centres", () => {
+  it("zoo / aquarium skips splash pads, pools, and ponds or gardens tagged as zoos", () => {
     const r = RULES.find((x) => x.tag === "zoo_aquarium")!;
     const out = matches(r, center, [
       at("Splash Pad", "leisure", "water_park"),
@@ -65,17 +79,20 @@ describe("tightened rules", () => {
       at("Schoolyard Sprayground", "leisure", "water_park"),
       at("Golfland Sunsplash", "leisure", "water_park"),
       at("Honolulu Zoo", "tourism", "zoo"),
+      at("Lake Ariza", "tourism", "zoo"),
+      at("Grange Garden", "tourism", "zoo"),
+      at("Kangaroo Creek Farm", "tourism", "zoo", 1, true),
     ]);
-    expect(out.map((p) => p.name)).toEqual(["Golfland Sunsplash", "Honolulu Zoo"]);
+    expect(out.map((p) => p.name)).toEqual(["Golfland Sunsplash", "Honolulu Zoo", "Kangaroo Creek Farm"]);
   });
 });
 
 describe("tagLocation", () => {
   it("applies tags with evidence, stops early, and requires min counts", async () => {
     const search = vi.fn(async (q: string) => {
-      if (q === "beach") return [at("Cocoa Beach", "natural", "beach", 2)];
-      if (q === "zoo") return [at("Cool Zoo", "tourism", "zoo", 5)];
-      if (q === "trailhead") return [at("North Trailhead", "highway", "trailhead")]; // only 1, needs 2
+      if (q === "[natural=beach]") return [at("Cocoa Beach", "natural", "beach", 2)];
+      if (q === "[tourism=zoo]") return [at("Cool Zoo", "tourism", "zoo", 5)];
+      if (q === "state park") return [at("Smith Neighborhood Park", "leisure", "park")]; // not park-like
       return [];
     });
     const tags = await tagLocation(center, search);
@@ -83,8 +100,9 @@ describe("tagLocation", () => {
     expect(tags.zoo_aquarium.present).toBe(true);
     expect(tags.hiking.present).toBe(false);
     expect(tags.skiing.present).toBe(false);
-    // kid-friendly matched on "zoo", so "aquarium" and "water park" were never searched
-    expect(search.mock.calls.map((c) => c[0])).not.toContain("aquarium");
+    // zoo matched first, so aquarium and water park were never searched
+    expect(search.mock.calls.map((c) => c[0])).not.toContain("[tourism=aquarium]");
+    expect(search.mock.calls.map((c) => c[0])).toContain("state park"); // hiking tried every query
   });
 });
 
@@ -101,6 +119,13 @@ describe("applyDerived", () => {
     r.hiking = { present: true, evidence: "x" };
     r.beach = { present: true, evidence: "x" };
     expect(applyDerived(r, { name: "Kissimmee", population: 60894 }).scenic).toEqual({ present: true, evidence: "from beach, hiking" });
+  });
+
+  it("beach falls back to a beach-named town, and that feeds scenic", () => {
+    const r = applyDerived(none(), { name: "Cocoa Beach", population: 11000 });
+    expect(r.beach).toEqual({ present: true, evidence: "town name: Cocoa Beach" });
+    expect(r.scenic.present).toBe(true);
+    expect(applyDerived(none(), { name: "Beachwood", population: 1 }).beach.present).toBe(false);
   });
 
   it("city means the listed city has 100k+ people", () => {

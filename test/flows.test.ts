@@ -62,7 +62,7 @@ beforeEach(async () => {
   geocodeText.mockReset();
   // every location has a beach and nothing else
   searchNear.mockReset().mockImplementation(async (q, c) =>
-    q === "beach" ? [{ name: "Test Beach", category: "natural", type: "beach", lat: c.lat, lng: c.lng }] : [],
+    q === "[natural=beach]" ? [{ name: "Test Beach", category: "natural", type: "beach", lat: c.lat, lng: c.lng }] : [],
   );
 });
 afterEach(() => close());
@@ -267,7 +267,7 @@ describe("activity tags", () => {
 
   it("auto-tags after geocoding and flags places with no tags", async () => {
     searchNear.mockImplementation(async (q, c) =>
-      q === "beach" && c.lat === 39.9 ? [{ name: "Test Beach", category: "natural", type: "beach", lat: c.lat, lng: c.lng }] : [],
+      q === "[natural=beach]" && c.lat === 39.9 ? [{ name: "Test Beach", category: "natural", type: "beach", lat: c.lat, lng: c.lng }] : [],
     );
     geocodeProperty.mockImplementation(async (p) => ({ lat: p.name === "Resort" ? 39.9 : 38.5, lng: -105.8, source: "osm-city" }));
     expect(await runGeocodeBatch()).toMatchObject({ processed: 2, remaining: 0 });
@@ -310,7 +310,7 @@ describe("activity tags", () => {
     expect((await tagsOf("Resort")).tagStatus).toBe("pending");
     searchNear.mockClear();
     await runGeocodeBatch();
-    expect(searchNear).toHaveBeenCalledWith("beach", { lat: 10, lng: -80 }, 3);
+    expect(searchNear).toHaveBeenCalledWith("[natural=beach]", { lat: 10, lng: -80 }, 3);
   });
 
   it("a tagging failure is recorded without failing the location", async () => {

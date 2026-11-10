@@ -1,6 +1,6 @@
 import { TAGS, type Tag } from "@/lib/tags/constants";
 import { distanceKm, type LatLng } from "@/lib/geo/util";
-import { CITY_MIN_POPULATION, RULES, SCENIC_FROM, type Place, type TagRule } from "./rules";
+import { BEACH_TOWN, CITY_MIN_POPULATION, RULES, SCENIC_FROM, type Place, type TagRule } from "./rules";
 import { TAG_LABELS } from "./constants";
 
 const KM_PER_MILE = 1.609344;
@@ -24,7 +24,8 @@ export function matches(rule: TagRule, center: LatLng, places: Place[]): Place[]
 /** Pure: tags that come from other information rather than nearby searches. */
 export function applyDerived(result: TagResult, city: { name: string; population: number | null }): TagResult {
   const out = { ...result };
-  const from = SCENIC_FROM.filter((t) => result[t].present);
+  if (!out.beach.present && BEACH_TOWN.test(city.name)) out.beach = { present: true, evidence: `town name: ${city.name}` };
+  const from = SCENIC_FROM.filter((t) => out[t].present);
   out.scenic = from.length
     ? { present: true, evidence: `from ${from.map((t) => TAG_LABELS[t].toLowerCase()).join(", ")}` }
     : { present: false, evidence: null };
