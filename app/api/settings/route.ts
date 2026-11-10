@@ -27,6 +27,10 @@ const Body = z.object({
   extraDriveUsdPerHour: z.number().min(0).max(500).optional(),
   serpapiMonthlyCap: z.number().int().min(0).max(100000).optional(),
   fareCacheHours: z.number().int().min(1).max(24 * 60).optional(),
+  altOriginAirport: z.string().regex(/^([A-Za-z]{3})?$/).optional(),
+  altOriginDriveHours: z.number().min(0).max(24).optional(),
+  altOriginDriveMiles: z.number().min(0).max(2000).optional(),
+  altOriginParkingUsdPerDay: z.number().min(0).max(500).optional(),
 });
 
 export async function GET() {
@@ -78,6 +82,10 @@ export async function PUT(req: Request) {
       extraDriveUsdPerHour: b.extraDriveUsdPerHour ?? cur.extraDriveUsdPerHour,
       serpapiMonthlyCap: b.serpapiMonthlyCap ?? cur.serpapiMonthlyCap,
       fareCacheHours: b.fareCacheHours ?? cur.fareCacheHours,
+      altOriginAirport: b.altOriginAirport?.toUpperCase() ?? cur.altOriginAirport,
+      altOriginDriveHours: b.altOriginDriveHours ?? cur.altOriginDriveHours,
+      altOriginDriveMiles: b.altOriginDriveMiles ?? cur.altOriginDriveMiles,
+      altOriginParkingUsdPerDay: b.altOriginParkingUsdPerDay ?? cur.altOriginParkingUsdPerDay,
     })
     .where(eq(settings.id, 1));
 

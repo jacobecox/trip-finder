@@ -33,6 +33,8 @@ const osrmMatrix = vi.mocked((await import("@/lib/geo/osrm")).osrmMatrix);
 const osrmRoute = vi.mocked((await import("@/lib/geo/osrm")).osrmRoute);
 const searchFares = vi.mocked((await import("@/lib/flights/serpapi")).searchFares);
 const { runFareBatch, fareStatus } = await import("@/lib/flights/job");
+const { fareFrom } = await import("@/lib/flights/pick");
+type ListingFare = import("@/lib/flights/fares").ListingFare;
 
 const { PATCH } = await import("@/app/api/properties/[id]/route");
 const { PUT } = await import("@/app/api/settings/route");
@@ -389,7 +391,7 @@ describe("flight fares", () => {
     expect(await fareStatus()).toMatchObject({ remaining: 1, usage: 0, cap: 240 });
     expect(await runFareBatch()).toMatchObject({ searched: 1, remaining: 0, usage: 1 });
     expect(searchFares).toHaveBeenCalledWith(
-      expect.objectContaining({ origin: "COS", outboundDate: "2030-03-02", passengers: { adults: 2, children: 1, lapInfants: 1 } }),
+      expect.objectContaining({ origin: "COS,DEN", outboundDate: "2030-03-02", passengers: { adults: 2, children: 1, lapInfants: 1 } }),
     );
     expect(searchFares.mock.calls[0][0].airports).toEqual(a.map((x) => x.iata).sort());
 
@@ -400,6 +402,47 @@ describe("flight fares", () => {
     // cached: nothing to do
     expect(await runFareBatch()).toMatchObject({ searched: 0, remaining: 0 });
     expect(searchFares).toHaveBeenCalledTimes(1);
+  });
+
+  it("DEN: searched with COS, wins only after its drive + parking; the toggle shows either airport", async () => {
+    const [near] = await airportsOf("Resort");
+    searchFares.mockResolvedValue({
+      status: "ok",
+      searchUrl: null,
+      options: [
+        { origin: "COS", iata: near.iata, priceUsd: 1200, airline: "United", stops: 1, durationMin: 300 },
+        { origin: "DEN", iata: near.iata, priceUsd: 600, airline: "Frontier", stops: 0, durationMin: 240 },
+      ],
+    });
+    await runFareBatch();
+    const f = (await fareOf("Resort")) as ListingFare;
+    // defaults: drive 1.4 h each way at $25/h, 85 mi each way at 25 mpg × $3.50, and 8 days (7 nights + 1) × $10 parking
+    const extra = 2 * 1.4 * 25 + ((2 * 85) / 25) * 3.5 + 8 * 10;
+    expect(f).toMatchObject({ origin: "DEN", fareUsd: 600, airline: "Frontier" });
+    expect(f.originExtraUsd).toBeCloseTo(extra);
+    expect(f.byOrigin.COS).toMatchObject({ fareUsd: 1200, originExtraUsd: 0 });
+    expect(fareFrom(f, "COS")).toMatchObject({ origin: "COS", fareUsd: 1200 });
+    expect(fareFrom(f, "best")).toBe(f);
+
+    // a big parking bill flips it back to COS
+    await db.update(settings).set({ altOriginParkingUsdPerDay: 100 });
+    expect(await fareOf("Resort")).toMatchObject({ origin: "COS", fareUsd: 1200 });
+  });
+
+  it("older COS-only quotes keep showing until the COS,DEN re-price; DEN shows as not priced", async () => {
+    const [near] = await airportsOf("Resort");
+    searchFares.mockResolvedValue({
+      status: "ok",
+      searchUrl: null,
+      options: [{ iata: near.iata, priceUsd: 1000, airline: "United", stops: 0, durationMin: 200 }],
+    });
+    await db.update(settings).set({ altOriginAirport: "" });
+    await runFareBatch(); // saved under origin "COS"
+    await db.update(settings).set({ altOriginAirport: "DEN" });
+    expect((await fareStatus()).remaining).toBe(1); // the COS,DEN search is still to do
+    const f = (await fareOf("Resort")) as ListingFare;
+    expect(f).toMatchObject({ origin: "COS", fareUsd: 1000 });
+    expect(fareFrom(f, "DEN")).toBeNull();
   });
 
   it("stops at the monthly cap", async () => {

@@ -3,7 +3,7 @@ import fixture from "./__fixtures__/serpapi-bigbear.json";
 import cosDen from "./__fixtures__/serpapi-bigbear-cos-den.json";
 import { airportByIata, nearbyAirports, selectCandidates, type Reachable } from "./airports";
 import { chooseFare } from "./choose";
-import { searchAirports } from "./keys";
+import { searchAirports, searchOrigins } from "./keys";
 import { parseFares, passengersFor } from "./serpapi";
 
 const rules = { maxDriveHours: 2.5, hubMaxDriveHours: 4, maxAirports: 7 };
@@ -146,6 +146,14 @@ describe("chooseFare", () => {
 
   it("no matching options -> null", () => {
     expect(chooseFare([], airports, s)).toBeNull();
+  });
+});
+
+describe("searchOrigins", () => {
+  it("home airport plus the second one, if set and different", () => {
+    expect(searchOrigins({ originAirport: "COS", altOriginAirport: "DEN" })).toBe("COS,DEN");
+    expect(searchOrigins({ originAirport: "COS", altOriginAirport: "" })).toBe("COS");
+    expect(searchOrigins({ originAirport: "COS", altOriginAirport: "COS" })).toBe("COS");
   });
 });
 

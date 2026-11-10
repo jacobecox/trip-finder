@@ -24,6 +24,10 @@ interface S {
   extraDriveUsdPerHour: number;
   serpapiMonthlyCap: number;
   fareCacheHours: number;
+  altOriginAirport: string;
+  altOriginDriveHours: number;
+  altOriginDriveMiles: number;
+  altOriginParkingUsdPerDay: number;
 }
 
 type Form = { [K in Exclude<keyof S, "tagWeights">]: string } & { tagWeights: Record<string, string> };
@@ -51,7 +55,7 @@ export default function SettingsForm({ initial }: { initial: S }) {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const n = (k: Exclude<keyof Form, "tagWeights" | "originLabel" | "originAirport">) => Number(f[k]);
+    const n = (k: Exclude<keyof Form, "tagWeights" | "originLabel" | "originAirport" | "altOriginAirport">) => Number(f[k]);
     const body = {
       originLabel: f.originLabel,
       originLat: n("originLat"),
@@ -73,6 +77,10 @@ export default function SettingsForm({ initial }: { initial: S }) {
       extraDriveUsdPerHour: n("extraDriveUsdPerHour"),
       serpapiMonthlyCap: Math.round(n("serpapiMonthlyCap")),
       fareCacheHours: Math.round(n("fareCacheHours")),
+      altOriginAirport: f.altOriginAirport.trim().toUpperCase(),
+      altOriginDriveHours: n("altOriginDriveHours"),
+      altOriginDriveMiles: n("altOriginDriveMiles"),
+      altOriginParkingUsdPerDay: n("altOriginParkingUsdPerDay"),
     };
     if (Object.values(body).some((v) => typeof v === "number" && Number.isNaN(v)) ||
         Object.values(body.tagWeights).some(Number.isNaN))
@@ -161,6 +169,24 @@ export default function SettingsForm({ initial }: { initial: S }) {
         <p className={hint}>
           Each fare search covers every candidate airport for a property. The cheapest fare + extra drive (both ways,
           plus gas) wins, so a farther airport has to save real money.
+        </p>
+      </fieldset>
+
+      <fieldset className="space-y-3">
+        <legend className="mb-1 font-medium">Also fly from</legend>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-sm">
+            Second airport
+            <input className={input} value={f.altOriginAirport} onChange={set("altOriginAirport")} maxLength={3} />
+            <span className={hint}>Searched together with the home airport (no extra searches). Leave empty to turn off.</span>
+          </label>
+          {field("altOriginParkingUsdPerDay", "Parking ($/day)", <span className={hint}>Counted for nights + 1 days</span>)}
+          {field("altOriginDriveHours", "Drive from home (hours, one way)")}
+          {field("altOriginDriveMiles", "Drive from home (miles, one way)")}
+        </div>
+        <p className={hint}>
+          Flying from the second airport adds the drive there and back (time at the $/hour above, plus gas) and
+          parking. The listings page can show either airport or the better of the two.
         </p>
       </fieldset>
 

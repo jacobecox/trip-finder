@@ -22,7 +22,10 @@ export interface ScoreInput {
   lng: number | null;
   tags: Tag[];
   /** real fare for the best arrival airport (from cached SerpApi results) */
-  fare?: { fareUsd: number; extraDriveUsd: number; layoverUsd?: number; seats: number } | { status: "none" } | null;
+  fare?:
+    | { fareUsd: number; extraDriveUsd: number; layoverUsd?: number; originExtraUsd?: number; seats: number }
+    | { status: "none" }
+    | null;
 }
 
 export interface Scored {
@@ -50,7 +53,11 @@ export function travelCost(
   if (r.fare && "fareUsd" in r.fare)
     return {
       travelMode: "fly",
-      travelUsd: (r.fare.fareUsd * s.tickets) / Math.max(1, r.fare.seats) + r.fare.extraDriveUsd + (r.fare.layoverUsd ?? 0),
+      travelUsd:
+        (r.fare.fareUsd * s.tickets) / Math.max(1, r.fare.seats) +
+        r.fare.extraDriveUsd +
+        (r.fare.layoverUsd ?? 0) +
+        (r.fare.originExtraUsd ?? 0),
       fareSource: "quote",
     };
   if (distanceMiles != null)

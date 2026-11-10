@@ -12,5 +12,9 @@ export function searchAirports(rows: Pick<AirportRow, "iata" | "auto" | "pinned"
     .sort();
 }
 
+/** Departure airports for a search: home airport, plus the alternative if set ("COS,DEN"). */
+export const searchOrigins = (s: { originAirport: string; altOriginAirport?: string }) =>
+  [s.originAirport, s.altOriginAirport].filter((a, i, all): a is string => !!a && all.indexOf(a) === i).join(",");
+
 export const quoteKey = (q: { origin: string; airports: string; outboundDate: string; returnDate: string; passengers: string }) =>
   [q.origin, q.airports, q.outboundDate, q.returnDate, q.passengers].join("|");

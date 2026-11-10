@@ -14,7 +14,7 @@ export const passengersFor = (tickets: number, lapInfants: number): Passengers =
 };
 
 export interface FareSearch {
-  origin: string;
+  origin: string; // one or more departure airports, comma-separated
   airports: string[];
   outboundDate: string;
   returnDate: string;

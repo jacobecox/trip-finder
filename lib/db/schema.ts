@@ -202,5 +202,10 @@ export const settings = pgTable("settings", {
   maxAirports: integer("max_airports").notNull().default(7), // Google Flights' per-search limit
   extraDriveUsdPerHour: real("extra_drive_usd_per_hour").notNull().default(25),
   serpapiMonthlyCap: integer("serpapi_monthly_cap").notNull().default(240),
+  // second departure airport searched in the same request ("" = off); its cost adds the drive from home + parking
+  altOriginAirport: text("alt_origin_airport").notNull().default("DEN"),
+  altOriginDriveHours: real("alt_origin_drive_hours").notNull().default(1.4), // home -> airport, one way
+  altOriginDriveMiles: real("alt_origin_drive_miles").notNull().default(85),
+  altOriginParkingUsdPerDay: real("alt_origin_parking_usd_per_day").notNull().default(10),
   fareCacheHours: integer("fare_cache_hours").notNull().default(24),
 });

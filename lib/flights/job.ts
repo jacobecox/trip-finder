@@ -2,7 +2,7 @@ import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { apiUsage, flightQuote, getDb, listing, property, propertyAirport } from "@/lib/db";
 import { getLatestUpload, getSettings } from "@/lib/queries";
 import { QuotaError } from "@/lib/geo/util";
-import { quoteKey, searchAirports } from "./keys";
+import { quoteKey, searchAirports, searchOrigins } from "./keys";
 import { passengersFor, passengersKey, searchFares, type FareSearch } from "./serpapi";
 
 type Settings = Awaited<ReturnType<typeof getSettings>>;
@@ -53,7 +53,7 @@ export async function neededSearches(s: Settings): Promise<FareSearch[]> {
   for (const r of rows) {
     const list = searchAirports(airports.filter((a) => a.propertyId === r.propertyId), s.maxAirports);
     if (!list.length) continue;
-    const q = { origin: s.originAirport, airports: list, outboundDate: r.arrivalDate, returnDate: r.checkoutDate, passengers };
+    const q = { origin: searchOrigins(s), airports: list, outboundDate: r.arrivalDate, returnDate: r.checkoutDate, passengers };
     out.set(quoteKey({ ...q, airports: list.join(","), passengers: passengersKey(passengers) }), q);
   }
   return [...out.values()].sort((a, b) => a.outboundDate.localeCompare(b.outboundDate));

@@ -30,6 +30,7 @@ export default async function Home() {
       <ListingsTable
         rows={rows}
         origin={{ label: s.originLabel, lat: s.originLat, lng: s.originLng }}
+        airports={{ home: s.originAirport, alt: s.altOriginAirport }}
         scoreSettings={{
           costWeight: s.costWeight,
           activityWeight: s.activityWeight,

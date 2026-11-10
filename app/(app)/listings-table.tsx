@@ -9,6 +9,7 @@ import { scoreListings, type ScoreSettings } from "@/lib/scoring";
 import { tagDisplay } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
 import type { FareInfo } from "@/lib/flights/fares";
+import { fareFrom, originCost } from "@/lib/flights/pick";
 
 // Leaflet touches `window`, so the map only loads in the browser
 const ListingsMap = dynamic(() => import("./listings-map"), {
@@ -74,16 +75,20 @@ const input = "rounded border border-black/20 bg-transparent px-2 py-1 text-sm d
 const muted = "text-xs text-black/50 dark:text-white/50";
 
 export default function ListingsTable({
-  rows: data,
+  rows: raw,
   origin,
+  airports,
   scoreSettings,
 }: {
   rows: Row[];
   origin: { label: string; lat: number; lng: number };
+  airports: { home: string; alt: string };
   scoreSettings: ScoreSettings;
 }) {
   const [tickets, setTickets] = useState(String(scoreSettings.tickets));
   const ticketCount = Math.min(20, Math.max(1, Math.round(Number(tickets)) || scoreSettings.tickets));
+  const [flyFrom, setFlyFrom] = useState("best");
+  const data = useMemo(() => raw.map((r) => ({ ...r, fare: fareFrom(r.fare, flyFrom) })), [raw, flyFrom]);
   const rows = useMemo(
     () => scoreListings(data, origin, { ...scoreSettings, tickets: ticketCount }),
     [data, origin, scoreSettings, ticketCount],
@@ -177,6 +182,18 @@ export default function ListingsTable({
             title="Used for fly-to cost estimates. Default is set on the Settings page."
           />
         </label>
+        {airports.alt && (
+          <label className="text-xs">
+            Fly from
+            <select className={`${input} w-full`} value={flyFrom} onChange={(e) => setFlyFrom(e.target.value)}>
+              <option value="best">
+                Cheaper of {airports.home} / {airports.alt}
+              </option>
+              <option value={airports.home}>{airports.home} only</option>
+              <option value={airports.alt}>{airports.alt} only</option>
+            </select>
+          </label>
+        )}
         <label className="text-xs">
           Arrive from
           <input type="date" className={`${input} w-full`} value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -297,7 +314,7 @@ export default function ListingsTable({
                 <td className="px-2 py-1.5 text-right tabular-nums">{fmtUsd(r.priceUsd)}</td>
                 <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
                   {fmtUsd(r.travelUsd)}
-                  <TravelNote r={r} tickets={ticketCount} />
+                  <TravelNote r={r} tickets={ticketCount} home={airports.home} flyFrom={flyFrom} />
                 </td>
                 <td className="px-2 py-1.5 text-right font-medium tabular-nums">{fmtUsd(r.totalUsd)}</td>
                 <td className="whitespace-nowrap px-2 py-1.5">
@@ -356,16 +373,21 @@ function scoreTitle(r: { costScore: number | null; activityScore: number }) {
 function TravelNote({
   r,
   tickets,
+  home,
+  flyFrom,
 }: {
   r: { travelMode: "drive" | "fly" | null; fareSource: "quote" | "estimate" | null; fare: FareInfo };
   tickets: number;
+  home: string;
+  flyFrom: string;
 }) {
   if (!r.travelMode) return null;
   if (r.travelMode === "drive") return <div className={muted}>gas</div>;
   const f = r.fare;
   if (r.fareSource === "quote" && f && "iata" in f) {
     const scaled = tickets !== f.seats;
-    const label = `✈ ${f.iata} · ${f.airline}`;
+    const label = `✈ ${f.origin && f.origin !== home ? `${f.origin}→` : ""}${f.iata} · ${f.airline}`;
+    const others = Object.values(f.byOrigin ?? {}).filter((o) => o.origin !== f.origin);
     const stops =
       f.stops === 0
         ? "nonstop"
@@ -380,6 +402,10 @@ function TravelNote({
       f.extraDriveHours > 0.05 &&
         `+${fmtHours(f.extraDriveHours)} drive vs ${f.nearestIata} each way, counted as $${Math.round(f.extraDriveUsd)}`,
       f.nonstop && `cheapest nonstop: ${f.nonstop.iata} ${f.nonstop.airline} $${Math.round(f.nonstop.fareUsd)}`,
+      f.originExtraUsd > 0.5 && `flying from ${f.origin}: drive there and back + parking counted as $${Math.round(f.originExtraUsd)}`,
+      ...others.map(
+        (o) => `from ${o.origin}: $${Math.round(originCost(o))} all-in (${o.iata}, ${o.stops === 0 ? "nonstop" : `${o.stops} stop`})`,
+      ),
       scaled && `scaled to ${tickets} seats`,
       `priced ${fmtDate(f.fetchedAt.slice(0, 10))}`,
     ]
@@ -405,10 +431,25 @@ function TravelNote({
           </div>
         )}
         {f.extraDriveHours > 0.05 && <div>+{fmtHours(f.extraDriveHours)} drive vs {f.nearestIata}</div>}
+        {f.originExtraUsd > 0.5 && (
+          <div>
+            +{fmtUsd(f.originExtraUsd)} {f.origin} drive &amp; parking
+          </div>
+        )}
+        {others.map((o) => (
+          <div key={o.origin}>
+            vs {o.origin} {fmtUsd(originCost(o))}
+          </div>
+        ))}
         {scaled && <div>≈ {tickets} seats</div>}
       </div>
     );
   }
   const none = f && "status" in f && f.status === "none";
-  return <div className={muted}>{none ? "no flights found · est." : `${tickets} flights, est.`}</div>;
+  const notFromHere = flyFrom !== "best" && !f;
+  return (
+    <div className={muted}>
+      {none ? "no flights found · est." : notFromHere ? `not priced from ${flyFrom} yet · est.` : `${tickets} flights, est.`}
+    </div>
+  );
 }

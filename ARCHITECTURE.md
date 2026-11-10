@@ -40,8 +40,8 @@ names only. Real PDFs are gitignored.
    untagged properties are flagged.
 3. **Flight pricing** via SerpApi Google Flights from COS to each property's candidate airports
    (one search covers them all). Cache 24h; run from a button with a monthly search cap.
-   Later: also price DEN (international or COS total > $900; show if net savings >= $200).
-4. **Map view** (Leaflet + OpenStreetMap), pins colored by score, shares filters with table.
+   DEN is searched in the same request; a "Fly from" toggle shows COS, DEN or the cheaper.
+4. **Map view** (Leaflet + OpenStreetMap), pins colored by score, shares filters with table. Done.
 5. **Email ingest** (webhook with shared secret) + monthly "top picks" email.
 
 ## Phase 2 notes
@@ -71,8 +71,22 @@ names only. Real PDFs are gitignored.
 - One SerpApi search per (airport list, dates, passengers), cached in `flight_quote`. Round-trip
   prices in the outbound results are totals for all passengers. Usage is counted per month in
   `api_usage` and capped in Settings (free plan: 250).
-- Best airport = lowest fare + extra drive vs the nearest candidate (both ways: hours × $/h + gas).
-  Computed on read, so changing $/h doesn't need new searches. A failed refresh keeps the old quote.
+- Best itinerary = lowest fare + extra drive vs the nearest airport that has flights (both ways:
+  hours × $/h + gas) + layover time (outbound layovers × 2 at the same $/h). Each search keeps the
+  cheapest itinerary and the cheapest nonstop per departure + arrival airport. Computed on read, so
+  changing $/h doesn't need new searches. A failed refresh keeps the old quote.
+- Second departure airport (default DEN): `departure_id=COS,DEN` in the same search, so it costs no
+  extra searches. Google returns mostly DEN itineraries in that case (DEN is far cheaper), but the
+  cheapest COS one came through in testing. DEN adds the drive from home both ways (time + gas) and
+  parking for nights + 1 days. Quotes saved before this (origin "COS") still show until re-priced.
+- ORS calls go to api.heigit.org; the deprecated api.openrouteservice.org enforced much smaller
+  quotas than the key's plan. If ORS refuses, drive times fall back to the public OSRM server.
+- SerpApi's free plan renews on the account's sign-up day (the 10th), not the 1st; the app's counter
+  is per calendar month.
+
+## Phase 4 notes
+- Map: Leaflet loaded client-only (`next/dynamic`, `ssr: false`). One pin per resort; pins are colored
+  by rank among those shown (raw scores cluster at 50-90 and one outlier flattens a min-max scale).
 - Passengers: `tickets` seats (first two adults, rest children) + lap infants. The listings-page
   ticket override scales the fare per seat (approximate, labelled "≈").
 
