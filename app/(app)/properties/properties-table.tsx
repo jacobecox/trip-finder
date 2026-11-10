@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { fmtHours } from "@/lib/format";
-import { TAGS, TAG_LABELS, type Tag } from "@/lib/tags/constants";
+import { TAGS, tagDisplay, type Tag } from "@/lib/tags/constants";
 import type { TagRow } from "@/lib/tags/effective";
 
 interface P {
@@ -56,7 +56,7 @@ function TagEditor({ p, send }: { p: P; send: (body: object) => Promise<void> })
                   : "border-black/15 text-black/40 line-through dark:border-white/20 dark:text-white/40"
               }`}
             >
-              {TAG_LABELS[t]}
+              {tagDisplay(t)}
             </button>
           );
         })}

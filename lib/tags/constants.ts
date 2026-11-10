@@ -11,3 +11,14 @@ export const TAG_LABELS: Record<Tag, string> = {
   skiing: "Skiing",
   kid_friendly: "Kid-friendly",
 };
+
+/** Display only; not stored. */
+export const TAG_EMOJI: Record<Tag, string> = {
+  beach: "🏖️",
+  theme_park: "🎢",
+  hiking: "🥾",
+  skiing: "⛷️",
+  kid_friendly: "🧸",
+};
+
+export const tagDisplay = (t: Tag) => `${TAG_EMOJI[t]} ${TAG_LABELS[t]}`;

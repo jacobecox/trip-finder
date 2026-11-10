@@ -21,6 +21,10 @@ export interface TagRule {
 }
 
 const is = (p: Place, category: string, ...types: string[]) => p.category === category && types.includes(p.type);
+// Water-park "beaches" (e.g. Disney's Getaway Glen) are tagged natural=beach in OSM; require a beach-like name
+const BEACHLIKE = /\b(beach|playa|plage|praia|spiaggia|strand|shore|sands?|cove)\b/i;
+// Splash pads, public pools and aquatic centres are tagged water_park but aren't destinations
+const NOT_A_WATER_PARK = /splash\s*pad|spray\s*(ground|park)|sprayground|aquatic|pool|water\s*wall/i;
 const PARKLIKE = /\b(national|state)\s+(park|forest|monument|recreation area|seashore)\b|\bwilderness\b/i;
 
 /** Several rules may feed one tag; any satisfied rule applies it. Radii are in miles. */
@@ -30,7 +34,7 @@ export const RULES: TagRule[] = [
     label: "beach",
     radiusMiles: 3,
     queries: ["beach"],
-    accept: (p) => is(p, "natural", "beach"),
+    accept: (p) => is(p, "natural", "beach") && BEACHLIKE.test(p.name),
     minCount: 1,
   },
   {
@@ -75,7 +79,8 @@ export const RULES: TagRule[] = [
     label: "zoo / aquarium / water park",
     radiusMiles: 10,
     queries: ["zoo", "aquarium", "water park"],
-    accept: (p) => is(p, "tourism", "zoo", "aquarium") || is(p, "leisure", "water_park"),
+    accept: (p) =>
+      is(p, "tourism", "zoo", "aquarium") || (is(p, "leisure", "water_park") && !NOT_A_WATER_PARK.test(p.name)),
     minCount: 1,
   },
 ];

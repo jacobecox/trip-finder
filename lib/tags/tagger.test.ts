@@ -46,6 +46,30 @@ describe("matches", () => {
   });
 });
 
+describe("tightened rules", () => {
+  it("beach needs a beach-like name (skips water-park 'beaches')", () => {
+    const out = matches(rule("beach"), center, [
+      at("Getaway Glen", "natural", "beach"),
+      at("Hideaway Bay", "natural", "beach"),
+      at("Cocoa Beach", "natural", "beach"),
+      at("Playa del Coco", "natural", "beach"),
+    ]);
+    expect(out.map((p) => p.name)).toEqual(["Cocoa Beach", "Playa del Coco"]);
+  });
+
+  it("kid-friendly skips splash pads, pools and aquatic centres", () => {
+    const r = RULES.find((x) => x.tag === "kid_friendly")!;
+    const out = matches(r, center, [
+      at("Splash Pad", "leisure", "water_park"),
+      at("Mesa Aquatic Complex", "leisure", "water_park"),
+      at("Schoolyard Sprayground", "leisure", "water_park"),
+      at("Golfland Sunsplash", "leisure", "water_park"),
+      at("Honolulu Zoo", "tourism", "zoo"),
+    ]);
+    expect(out.map((p) => p.name)).toEqual(["Golfland Sunsplash", "Honolulu Zoo"]);
+  });
+});
+
 describe("tagLocation", () => {
   it("applies tags with evidence, stops early, and requires min counts", async () => {
     const search = vi.fn(async (q: string) => {

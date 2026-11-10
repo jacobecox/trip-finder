@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TAGS, TAG_LABELS, type TagWeights } from "@/lib/tags/constants";
+import { TAGS, tagDisplay, type TagWeights } from "@/lib/tags/constants";
 
 interface S {
   originLabel: string;
@@ -131,7 +131,7 @@ export default function SettingsForm({ initial }: { initial: S }) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {TAGS.map((t) => (
             <label key={t} className="block text-sm">
-              {TAG_LABELS[t]}
+              {tagDisplay(t)}
               <input
                 className={input}
                 inputMode="decimal"

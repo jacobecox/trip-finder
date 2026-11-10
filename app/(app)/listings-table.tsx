@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { TAGS, type Tag } from "@/lib/tags/constants";
 import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtUsd } from "@/lib/format";
 import { scoreListings, type ScoreSettings } from "@/lib/scoring";
-import { TAG_LABELS } from "@/lib/tags/constants";
+import { tagDisplay } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
 
 export interface Row {
@@ -165,7 +165,7 @@ export default function ListingsTable({
             <option value="">Any</option>
             {TAGS.map((t) => (
               <option key={t} value={t}>
-                {TAG_LABELS[t]}
+                {tagDisplay(t)}
               </option>
             ))}
           </select>
