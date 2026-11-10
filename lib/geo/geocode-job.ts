@@ -1,19 +1,24 @@
 import { and, asc, eq, isNotNull, or, sql } from "drizzle-orm";
-import { getDb, property, propertyTag, TAGS } from "@/lib/db";
+import { getDb, property, propertyAirport, propertyTag, TAGS } from "@/lib/db";
+import { airportByIata, nearbyAirports, selectCandidates, type CandidateRules } from "@/lib/flights/airports";
 import { getSettings } from "@/lib/queries";
 import { applyDerived, tagLocation } from "@/lib/tags/tagger";
 import { cityPopulation, geocodeProperty, searchNear } from "./nominatim";
-import { driveRoute, inNorthAmerica } from "./ors";
+import { driveMatrix, driveRoute, inNorthAmerica } from "./ors";
 import { QuotaError } from "./util";
 
 export function computeDrivable(hours: number | null | undefined, max: number) {
   return hours != null && hours <= max;
 }
 
-/** Needs geocoding/routing, or is located but not yet auto-tagged. */
+/** Needs geocoding/routing, or is located but not yet auto-tagged / given candidate airports. */
 const needsWork = or(
   eq(property.geocodeStatus, "pending"),
-  and(eq(property.geocodeStatus, "ok"), eq(property.tagStatus, "pending"), isNotNull(property.lat)),
+  and(
+    eq(property.geocodeStatus, "ok"),
+    isNotNull(property.lat),
+    or(eq(property.tagStatus, "pending"), eq(property.airportStatus, "pending")),
+  ),
 );
 
 export async function countPending() {
@@ -34,6 +39,42 @@ async function saveTags(p: typeof property.$inferSelect, lat: number, lng: numbe
       target: [propertyTag.propertyId, propertyTag.tag],
       set: { osm: sql`excluded.osm`, osmEvidence: sql`excluded.osm_evidence` },
     });
+}
+
+/**
+ * Rebuilds the auto candidate airports for a property. Pinned/excluded rows are manual and kept;
+ * a pinned airport gets its drive time filled in when it's reachable.
+ */
+export async function saveAirports(propertyId: number, at: { lat: number; lng: number }, rules: CandidateRules) {
+  const db = getDb();
+  const manual = await db.select().from(propertyAirport).where(eq(propertyAirport.propertyId, propertyId));
+  const pinned = manual.filter((r) => r.pinned).map((r) => r.iata);
+  const near = nearbyAirports(at);
+  const ask = [...near.map((a) => a.iata), ...pinned.filter((i) => !near.some((a) => a.iata === i))];
+  const points = ask.map((i) => airportByIata(i)!).filter(Boolean);
+  const drives = await driveMatrix(at, points);
+  const reachable = points.flatMap((a, i) => (drives[i] ? [{ iata: a.iata, large: a.large, ...drives[i]! }] : []));
+  // excluded airports don't take one of the slots
+  const excluded = new Set(manual.filter((r) => r.excluded).map((r) => r.iata));
+  const picked = new Set(selectCandidates(reachable.filter((a) => !excluded.has(a.iata)), rules).map((a) => a.iata));
+  const keep = new Set([...picked, ...manual.filter((r) => r.pinned || r.excluded).map((r) => r.iata)]);
+
+  await db.delete(propertyAirport).where(eq(propertyAirport.propertyId, propertyId));
+  const rows = [...keep].map((iata) => {
+    const d = reachable.find((a) => a.iata === iata);
+    const m = manual.find((r) => r.iata === iata);
+    return {
+      propertyId,
+      iata,
+      driveHours: d?.hours ?? m?.driveHours ?? null,
+      driveMiles: d?.miles ?? m?.driveMiles ?? null,
+      auto: picked.has(iata),
+      pinned: m?.pinned ?? false,
+      excluded: m?.excluded ?? false,
+    };
+  });
+  if (rows.length) await db.insert(propertyAirport).values(rows);
+  return rows;
 }
 
 /**
@@ -110,6 +151,27 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
         await db
           .update(property)
           .set({ tagStatus: "failed", tagError: e instanceof Error ? e.message : String(e) })
+          .where(eq(property.id, p.id));
+      }
+    }
+
+    if (p.airportStatus === "pending" && lat != null && lng != null) {
+      try {
+        await saveAirports(p.id, { lat, lng }, {
+          maxDriveHours: settings.airportMaxDriveHours,
+          hubMaxDriveHours: settings.hubMaxDriveHours,
+          maxAirports: settings.maxAirports,
+        });
+        await db.update(property).set({ airportStatus: "ok", airportError: null }).where(eq(property.id, p.id));
+      } catch (e) {
+        if (e instanceof QuotaError) {
+          quotaExceeded = true;
+          break;
+        }
+        failed++;
+        await db
+          .update(property)
+          .set({ airportStatus: "failed", airportError: e instanceof Error ? e.message : String(e) })
           .where(eq(property.id, p.id));
       }
     }

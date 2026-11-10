@@ -1,6 +1,7 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb, listing, listingsUpload, property, propertyTag, settings } from "@/lib/db";
 import { effectiveTags, isUntagged, type TagRow } from "@/lib/tags/effective";
+import { airportsByProperty, faresFor } from "@/lib/flights/fares";
 
 async function tagRowsByProperty() {
   const rows = await getDb()
@@ -59,22 +60,31 @@ export async function getCurrentListings() {
     .innerJoin(property, eq(listing.propertyId, property.id))
     .where(eq(listing.uploadId, upload.id))
     .orderBy(listing.arrivalDate, listing.id);
-  const tagMap = await tagRowsByProperty();
+  const [tagMap, s] = await Promise.all([tagRowsByProperty(), getSettings()]);
+  const fares = await faresFor(rows, s);
   return {
     upload,
     rows: rows.map((r) => {
       const tags = effectiveTags(tagMap.get(r.propertyId) ?? []);
-      return { ...r, tags, untagged: isUntagged(r, tags) };
+      return { ...r, tags, untagged: isUntagged(r, tags), fare: fares.get(r) ?? null };
     }),
   };
 }
 
 export async function getPropertiesWithCounts() {
   const [rows, tagMap] = await Promise.all([propertyRows(), tagRowsByProperty()]);
+  const airports = await airportsByProperty(rows.map((r) => r.id));
   return rows.map((r) => {
     const tagRows = tagMap.get(r.id) ?? [];
     const tags = effectiveTags(tagRows);
-    return { ...r, tagRows, tags, untagged: isUntagged(r, tags) };
+    const airportRows = (airports.get(r.id) ?? []).map(({ iata, driveHours, auto, pinned, excluded }) => ({
+      iata,
+      driveHours,
+      auto,
+      pinned,
+      excluded,
+    }));
+    return { ...r, tagRows, tags, untagged: isUntagged(r, tags), airportRows };
   });
 }
 
@@ -99,6 +109,8 @@ function propertyRows() {
       tagStatus: property.tagStatus,
       tagError: property.tagError,
       tagsReviewed: property.tagsReviewed,
+      airportStatus: property.airportStatus,
+      airportError: property.airportError,
       listingCount: sql<number>`(select count(*)::int from ${listing} where ${listing.propertyId} = ${property.id})`,
     })
     .from(property)

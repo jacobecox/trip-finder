@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getDb, property, propertyTag, TAGS } from "@/lib/db";
+import { getDb, property, propertyAirport, propertyTag, TAGS } from "@/lib/db";
+import { airportByIata } from "@/lib/flights/airports";
 import { computeDrivable } from "@/lib/geo/geocode-job";
 import { getSettings } from "@/lib/queries";
 
@@ -16,6 +17,8 @@ const Body = z.object({
   tags: z.partialRecord(z.enum(TAGS), z.boolean().nullable()).optional(),
   tagsReviewed: z.boolean().optional(),
   resetTags: z.boolean().optional(),
+  // per-airport manual choice: "pin" = always search, "exclude" = never, null = back to auto
+  airports: z.record(z.string().regex(/^[A-Za-z]{3}$/), z.enum(["pin", "exclude"]).nullable()).optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -38,6 +41,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       geocodeSource: null,
       geocodeStatus: "pending",
       tagStatus: "pending",
+      airportStatus: "pending",
     });
   } else {
     if (b.lat !== undefined || b.lng !== undefined) {
@@ -48,6 +52,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         latLngOverridden: true,
         geocodeSource: "manual",
         tagStatus: "pending",
+        airportStatus: "pending",
       });
       if (b.lat != null && b.lng != null) patch.geocodeStatus = "ok";
     }
@@ -71,5 +76,25 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       .insert(propertyTag)
       .values(manual.map(([tag, value]) => ({ propertyId: id, tag, manual: value })))
       .onConflictDoUpdate({ target: [propertyTag.propertyId, propertyTag.tag], set: { manual: sql`excluded.manual` } });
+
+  const airportChoices = Object.entries(b.airports ?? {}).map(([k, v]) => [k.toUpperCase(), v] as const);
+  if (airportChoices.some(([iata]) => !airportByIata(iata)))
+    return NextResponse.json({ error: "Unknown airport code" }, { status: 400 });
+  for (const [iata, v] of airportChoices) {
+    const flags = { pinned: v === "pin", excluded: v === "exclude" };
+    await db
+      .insert(propertyAirport)
+      .values({ propertyId: id, iata, auto: false, ...flags })
+      .onConflictDoUpdate({ target: [propertyAirport.propertyId, propertyAirport.iata], set: flags });
+  }
+  // pinned airports need a drive time, and a cleared choice may be an auto pick again: rebuild on the next run
+  if (airportChoices.some(([, v]) => v !== "exclude"))
+    await db.update(property).set({ airportStatus: "pending" }).where(eq(property.id, id));
+  // cleared manual rows that the rules never picked are just noise
+  await db
+    .delete(propertyAirport)
+    .where(
+      sql`${propertyAirport.propertyId} = ${id} and not ${propertyAirport.auto} and not ${propertyAirport.pinned} and not ${propertyAirport.excluded}`,
+    );
   return NextResponse.json({ ok: true });
 }

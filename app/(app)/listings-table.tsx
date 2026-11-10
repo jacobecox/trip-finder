@@ -7,6 +7,7 @@ import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtUsd } from "@/lib/format";
 import { scoreListings, type ScoreSettings } from "@/lib/scoring";
 import { tagDisplay } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
+import type { FareInfo } from "@/lib/flights/fares";
 
 export interface Row {
   id: number;
@@ -25,6 +26,7 @@ export interface Row {
   lng: number | null;
   tags: Tag[];
   untagged: boolean;
+  fare: FareInfo;
 }
 
 type SortKey =
@@ -42,8 +44,8 @@ type Sort = { key: SortKey; dir: 1 | -1 };
 const PRESETS: { label: string; sort: Sort }[] = [
   { label: "Score (best)", sort: { key: "score", dir: -1 } },
   { label: "Score (worst)", sort: { key: "score", dir: 1 } },
-  { label: "Est. total (low to high)", sort: { key: "totalUsd", dir: 1 } },
-  { label: "Est. total (high to low)", sort: { key: "totalUsd", dir: -1 } },
+  { label: "Total (low to high)", sort: { key: "totalUsd", dir: 1 } },
+  { label: "Total (high to low)", sort: { key: "totalUsd", dir: -1 } },
   { label: "Lodging (low to high)", sort: { key: "priceUsd", dir: 1 } },
   { label: "Lodging (high to low)", sort: { key: "priceUsd", dir: -1 } },
   { label: "Arrival (soonest)", sort: { key: "arrivalDate", dir: 1 } },
@@ -229,7 +231,7 @@ export default function ListingsTable({
               {th("unitType", "Unit")}
               {th("priceUsd", "Lodging", "text-right")}
               <th className="px-2 py-2 text-right font-medium">Travel</th>
-              {th("totalUsd", "Est. total", "text-right")}
+              {th("totalUsd", "Total", "text-right")}
               {th("driveHours", "Drive")}
               {th("distanceMiles", "Distance", "text-right")}
             </tr>
@@ -253,9 +255,7 @@ export default function ListingsTable({
                 <td className="px-2 py-1.5 text-right tabular-nums">{fmtUsd(r.priceUsd)}</td>
                 <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
                   {fmtUsd(r.travelUsd)}
-                  {r.travelMode && (
-                    <div className={muted}>{r.travelMode === "drive" ? "gas" : `${ticketCount} flights, est.`}</div>
-                  )}
+                  <TravelNote r={r} tickets={ticketCount} />
                 </td>
                 <td className="px-2 py-1.5 text-right font-medium tabular-nums">{fmtUsd(r.totalUsd)}</td>
                 <td className="whitespace-nowrap px-2 py-1.5">
@@ -301,4 +301,44 @@ function scoreTitle(r: { costScore: number | null; activityScore: number }) {
   return r.costScore == null
     ? "No cost yet (location unknown)"
     : `Cost score ${Math.round(r.costScore)} · Activity score ${Math.round(r.activityScore)}`;
+}
+
+function TravelNote({
+  r,
+  tickets,
+}: {
+  r: { travelMode: "drive" | "fly" | null; fareSource: "quote" | "estimate" | null; fare: FareInfo };
+  tickets: number;
+}) {
+  if (!r.travelMode) return null;
+  if (r.travelMode === "drive") return <div className={muted}>gas</div>;
+  const f = r.fare;
+  if (r.fareSource === "quote" && f && "iata" in f) {
+    const scaled = tickets !== f.seats;
+    const label = `✈ ${f.iata} · ${f.stops === 0 ? "nonstop" : `${f.stops} stop${f.stops > 1 ? "s" : ""}`}`;
+    const title = [
+      `${f.airline}: $${Math.round(f.fareUsd)} round trip for ${f.seats} seats`,
+      f.extraDriveHours > 0.05 &&
+        `+${fmtHours(f.extraDriveHours)} drive vs ${f.nearestIata} each way, counted as $${Math.round(f.extraDriveUsd)}`,
+      scaled && `scaled to ${tickets} seats`,
+      `priced ${fmtDate(f.fetchedAt.slice(0, 10))}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    return (
+      <div className={muted} title={title}>
+        {f.searchUrl ? (
+          <a className="underline decoration-dotted" href={f.searchUrl} target="_blank" rel="noreferrer">
+            {label}
+          </a>
+        ) : (
+          label
+        )}
+        {f.extraDriveHours > 0.05 && <div>+{fmtHours(f.extraDriveHours)} vs {f.nearestIata}</div>}
+        {scaled && <div>≈ {tickets} seats</div>}
+      </div>
+    );
+  }
+  const none = f && "status" in f && f.status === "none";
+  return <div className={muted}>{none ? "no flights found · est." : `${tickets} flights, est.`}</div>;
 }

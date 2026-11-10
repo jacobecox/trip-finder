@@ -19,6 +19,14 @@ const Body = z.object({
   gasPriceUsd: z.number().min(0).max(50).optional(),
   flightBaseUsd: z.number().min(0).max(5000).optional(),
   flightPerMileUsd: z.number().min(0).max(5).optional(),
+  originAirport: z.string().regex(/^[A-Za-z]{3}$/).optional(),
+  lapInfants: z.number().int().min(0).max(4).optional(),
+  airportMaxDriveHours: z.number().min(0.5).max(12).optional(),
+  hubMaxDriveHours: z.number().min(0).max(12).optional(),
+  maxAirports: z.number().int().min(1).max(7).optional(),
+  extraDriveUsdPerHour: z.number().min(0).max(500).optional(),
+  serpapiMonthlyCap: z.number().int().min(0).max(100000).optional(),
+  fareCacheHours: z.number().int().min(1).max(24 * 60).optional(),
 });
 
 export async function GET() {
@@ -62,6 +70,14 @@ export async function PUT(req: Request) {
       gasPriceUsd: b.gasPriceUsd ?? cur.gasPriceUsd,
       flightBaseUsd: b.flightBaseUsd ?? cur.flightBaseUsd,
       flightPerMileUsd: b.flightPerMileUsd ?? cur.flightPerMileUsd,
+      originAirport: b.originAirport?.toUpperCase() ?? cur.originAirport,
+      lapInfants: b.lapInfants ?? cur.lapInfants,
+      airportMaxDriveHours: b.airportMaxDriveHours ?? cur.airportMaxDriveHours,
+      hubMaxDriveHours: b.hubMaxDriveHours ?? cur.hubMaxDriveHours,
+      maxAirports: b.maxAirports ?? cur.maxAirports,
+      extraDriveUsdPerHour: b.extraDriveUsdPerHour ?? cur.extraDriveUsdPerHour,
+      serpapiMonthlyCap: b.serpapiMonthlyCap ?? cur.serpapiMonthlyCap,
+      fareCacheHours: b.fareCacheHours ?? cur.fareCacheHours,
     })
     .where(eq(settings.id, 1));
 
@@ -78,5 +94,12 @@ export async function PUT(req: Request) {
       .returning({ id: property.id });
     requeued = rows.length;
   }
-  return NextResponse.json({ ok: true, requeued });
+  // candidate-airport rules changed: rebuild airport lists (cheap: one ORS matrix call each)
+  const airportRulesChanged =
+    (b.airportMaxDriveHours ?? cur.airportMaxDriveHours) !== cur.airportMaxDriveHours ||
+    (b.hubMaxDriveHours ?? cur.hubMaxDriveHours) !== cur.hubMaxDriveHours ||
+    (b.maxAirports ?? cur.maxAirports) !== cur.maxAirports;
+  if (airportRulesChanged)
+    await db.update(property).set({ airportStatus: "pending" }).where(sql`${property.lat} is not null`);
+  return NextResponse.json({ ok: true, requeued, airportsRequeued: airportRulesChanged });
 }

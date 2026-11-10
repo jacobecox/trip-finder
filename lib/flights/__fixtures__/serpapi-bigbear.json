@@ -1,0 +1,465 @@
+{
+ "search_metadata": {
+  "google_flights_url": "https://www.google.com/travel/flights?example"
+ },
+ "best_flights": [
+  {
+   "price": 1220,
+   "total_duration": 260,
+   "flights": [
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "PHX"
+     }
+    },
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "PHX"
+     },
+     "arrival_airport": {
+      "id": "LGB"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1352,
+   "total_duration": 306,
+   "flights": [
+    {
+     "airline": "Delta",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "SLC"
+     }
+    },
+    {
+     "airline": "Delta",
+     "departure_airport": {
+      "id": "SLC"
+     },
+     "arrival_airport": {
+      "id": "ONT"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1352,
+   "total_duration": 295,
+   "flights": [
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "DEN"
+     }
+    },
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "ONT"
+     }
+    }
+   ]
+  }
+ ],
+ "other_flights": [
+  {
+   "price": 1220,
+   "total_duration": 265,
+   "flights": [
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "DEN"
+     }
+    },
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "LGB"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1220,
+   "total_duration": 255,
+   "flights": [
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "PHX"
+     }
+    },
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "PHX"
+     },
+     "arrival_airport": {
+      "id": "LGB"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1232,
+   "total_duration": 288,
+   "flights": [
+    {
+     "airline": "Delta",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "SLC"
+     }
+    },
+    {
+     "airline": "Delta",
+     "departure_airport": {
+      "id": "SLC"
+     },
+     "arrival_airport": {
+      "id": "LAX"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1232,
+   "total_duration": 250,
+   "flights": [
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "PHX"
+     }
+    },
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "PHX"
+     },
+     "arrival_airport": {
+      "id": "LAX"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1257,
+   "total_duration": 281,
+   "flights": [
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "DEN"
+     }
+    },
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "LAX"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1280,
+   "total_duration": 292,
+   "flights": [
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "DEN"
+     }
+    },
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "PSP"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1280,
+   "total_duration": 275,
+   "flights": [
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "DEN"
+     }
+    },
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "PSP"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1292,
+   "total_duration": 255,
+   "flights": [
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "PHX"
+     }
+    },
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "PHX"
+     },
+     "arrival_airport": {
+      "id": "BUR"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1322,
+   "total_duration": 304,
+   "flights": [
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "DEN"
+     }
+    },
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "PSP"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1328,
+   "total_duration": 245,
+   "flights": [
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "PHX"
+     }
+    },
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "PHX"
+     },
+     "arrival_airport": {
+      "id": "SNA"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1352,
+   "total_duration": 255,
+   "flights": [
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "DEN"
+     }
+    },
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "ONT"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1416,
+   "total_duration": 524,
+   "flights": [
+    {
+     "airline": "American",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "DFW"
+     }
+    },
+    {
+     "airline": "American",
+     "departure_airport": {
+      "id": "DFW"
+     },
+     "arrival_airport": {
+      "id": "PSP"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1430,
+   "total_duration": 260,
+   "flights": [
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "LAS"
+     }
+    },
+    {
+     "airline": "Southwest",
+     "departure_airport": {
+      "id": "LAS"
+     },
+     "arrival_airport": {
+      "id": "PSP"
+     }
+    }
+   ]
+  },
+  {
+   "price": 1625,
+   "total_duration": 277,
+   "flights": [
+    {
+     "airline": "Delta",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "SLC"
+     }
+    },
+    {
+     "airline": "Delta",
+     "departure_airport": {
+      "id": "SLC"
+     },
+     "arrival_airport": {
+      "id": "PSP"
+     }
+    }
+   ]
+  },
+  {
+   "price": 2014,
+   "total_duration": 273,
+   "flights": [
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "DEN"
+     }
+    },
+    {
+     "airline": "United",
+     "departure_airport": {
+      "id": "DEN"
+     },
+     "arrival_airport": {
+      "id": "SNA"
+     }
+    }
+   ]
+  },
+  {
+   "price": 2024,
+   "total_duration": 369,
+   "flights": [
+    {
+     "airline": "American",
+     "departure_airport": {
+      "id": "COS"
+     },
+     "arrival_airport": {
+      "id": "DFW"
+     }
+    },
+    {
+     "airline": "American",
+     "departure_airport": {
+      "id": "DFW"
+     },
+     "arrival_airport": {
+      "id": "SNA"
+     }
+    }
+   ]
+  }
+ ]
+}

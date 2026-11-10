@@ -17,15 +17,26 @@ const origin = { lat: 38.8339, lng: -104.8214 };
 describe("travelCost", () => {
   it("drivable: round-trip gas in USD", () => {
     // 2 * 250 mi / 25 mpg * $3.50 = $70
-    expect(travelCost({ isDrivable: true, driveMiles: 250 }, 200, S)).toEqual({ travelMode: "drive", travelUsd: 70 });
+    expect(travelCost({ isDrivable: true, driveMiles: 250 }, 200, S)).toEqual({ travelMode: "drive", travelUsd: 70, fareSource: null });
   });
   it("fly: tickets × (base + per-mile × straight-line miles)", () => {
     // 3 × (120 + 0.1 × 1500) = 810
     expect(travelCost({ isDrivable: false, driveMiles: 1700 }, 1500, S).travelUsd).toBeCloseTo(810);
     expect(travelCost({ isDrivable: false, driveMiles: null }, 1500, { ...S, tickets: 5 }).travelUsd).toBeCloseTo(1350);
   });
+  it("fly with a real fare: fare (scaled to the ticket count) + extra drive", () => {
+    const fare = { fareUsd: 900, extraDriveUsd: 40, seats: 3 };
+    expect(travelCost({ isDrivable: false, driveMiles: null, fare }, 1500, S)).toEqual({
+      travelMode: "fly",
+      travelUsd: 940,
+      fareSource: "quote",
+    });
+    expect(travelCost({ isDrivable: false, driveMiles: null, fare }, 1500, { ...S, tickets: 4 }).travelUsd).toBeCloseTo(1240);
+    // "no flights found" falls back to the estimate
+    expect(travelCost({ isDrivable: false, driveMiles: null, fare: { status: "none" } }, 1500, S).fareSource).toBe("estimate");
+  });
   it("unknown location: no cost", () => {
-    expect(travelCost({ isDrivable: false, driveMiles: null }, null, S)).toEqual({ travelMode: null, travelUsd: null });
+    expect(travelCost({ isDrivable: false, driveMiles: null }, null, S)).toEqual({ travelMode: null, travelUsd: null, fareSource: null });
   });
 });
 

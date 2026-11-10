@@ -16,6 +16,14 @@ interface S {
   gasPriceUsd: number;
   flightBaseUsd: number;
   flightPerMileUsd: number;
+  originAirport: string;
+  lapInfants: number;
+  airportMaxDriveHours: number;
+  hubMaxDriveHours: number;
+  maxAirports: number;
+  extraDriveUsdPerHour: number;
+  serpapiMonthlyCap: number;
+  fareCacheHours: number;
 }
 
 type Form = { [K in Exclude<keyof S, "tagWeights">]: string } & { tagWeights: Record<string, string> };
@@ -43,7 +51,7 @@ export default function SettingsForm({ initial }: { initial: S }) {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const n = (k: Exclude<keyof Form, "tagWeights" | "originLabel">) => Number(f[k]);
+    const n = (k: Exclude<keyof Form, "tagWeights" | "originLabel" | "originAirport">) => Number(f[k]);
     const body = {
       originLabel: f.originLabel,
       originLat: n("originLat"),
@@ -57,6 +65,14 @@ export default function SettingsForm({ initial }: { initial: S }) {
       gasPriceUsd: n("gasPriceUsd"),
       flightBaseUsd: n("flightBaseUsd"),
       flightPerMileUsd: n("flightPerMileUsd"),
+      originAirport: f.originAirport.trim().toUpperCase(),
+      lapInfants: Math.round(n("lapInfants")),
+      airportMaxDriveHours: n("airportMaxDriveHours"),
+      hubMaxDriveHours: n("hubMaxDriveHours"),
+      maxAirports: Math.round(n("maxAirports")),
+      extraDriveUsdPerHour: n("extraDriveUsdPerHour"),
+      serpapiMonthlyCap: Math.round(n("serpapiMonthlyCap")),
+      fareCacheHours: Math.round(n("fareCacheHours")),
     };
     if (Object.values(body).some((v) => typeof v === "number" && Number.isNaN(v)) ||
         Object.values(body.tagWeights).some(Number.isNaN))
@@ -74,8 +90,8 @@ export default function SettingsForm({ initial }: { initial: S }) {
       setBusy(false);
       return setMsg(j.error ?? "Save failed");
     }
-    if (j.requeued > 0) {
-      setMsg(`Saved. Recomputing drive times for ${j.requeued} properties…`);
+    if (j.requeued > 0 || j.airportsRequeued) {
+      setMsg(j.requeued > 0 ? `Saved. Recomputing drive times for ${j.requeued} properties…` : "Saved. Rebuilding airport lists…");
       let more = true;
       while (more) {
         const r = await fetch("/api/geocode", { method: "POST" });
@@ -107,7 +123,8 @@ export default function SettingsForm({ initial }: { initial: S }) {
       <fieldset className="space-y-3">
         <legend className="mb-1 font-medium">Trip cost (USD)</legend>
         <div className="grid grid-cols-2 gap-3">
-          {field("tickets", "Plane tickets", <span className={hint}>Default for the listings page</span>)}
+          {field("tickets", "Plane tickets", <span className={hint}>Seats; the first two are adults</span>)}
+          {field("lapInfants", "Lap infants", <span className={hint}>No seat; may still cost on intl flights</span>)}
           {field("mpg", "Car MPG")}
           {field("gasPriceUsd", "Gas price ($/gal)")}
         </div>
@@ -116,8 +133,32 @@ export default function SettingsForm({ initial }: { initial: S }) {
           {field("flightPerMileUsd", "Flight estimate: $/mile")}
         </div>
         <p className={hint}>
-          Drivable trips cost lodging + round-trip gas. Other trips use a rough round-trip fare per ticket (base + $/mile ×
-          straight-line miles) until real flight prices are added.
+          Drivable trips cost lodging + round-trip gas. Other trips use real fares once priced, otherwise this rough
+          estimate per ticket (base + $/mile × straight-line miles).
+        </p>
+      </fieldset>
+
+      <fieldset className="space-y-3">
+        <legend className="mb-1 font-medium">Flights</legend>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-sm">
+            Home airport
+            <input className={input} value={f.originAirport} onChange={set("originAirport")} maxLength={3} required />
+          </label>
+          {field(
+            "extraDriveUsdPerHour",
+            "Extra drive ($/hour)",
+            <span className={hint}>What an extra hour of driving from a farther airport costs you</span>,
+          )}
+          {field("airportMaxDriveHours", "Airports within (hours)")}
+          {field("hubMaxDriveHours", "…or nearest big airport within (hours)")}
+          {field("maxAirports", "Max airports per search", <span className={hint}>Google Flights allows 7</span>)}
+          {field("fareCacheHours", "Re-price after (hours)")}
+          {field("serpapiMonthlyCap", "Monthly search cap", <span className={hint}>SerpApi free plan: 250</span>)}
+        </div>
+        <p className={hint}>
+          Each fare search covers every candidate airport for a property. The cheapest fare + extra drive (both ways,
+          plus gas) wins, so a farther airport has to save real money.
         </p>
       </fieldset>
 

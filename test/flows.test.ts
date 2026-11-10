@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { listing, listingsUpload, property, propertyTag, type Db } from "@/lib/db";
+import { apiUsage, flightQuote, listing, listingsUpload, property, propertyAirport, propertyTag, settings, type Db } from "@/lib/db";
 import { ingestUpload } from "@/lib/ingest";
 import { runGeocodeBatch } from "@/lib/geo/geocode-job";
 import { getCurrentListings, getPropertiesWithCounts, getSettings } from "@/lib/queries";
@@ -18,7 +18,8 @@ vi.mock("@/lib/geo/nominatim", () => ({
   searchNear: vi.fn(),
   cityPopulation: vi.fn(async () => null),
 }));
-vi.mock("@/lib/geo/ors", async (orig) => ({ ...(await orig<object>()), driveRoute: vi.fn() }));
+vi.mock("@/lib/geo/ors", async (orig) => ({ ...(await orig<object>()), driveRoute: vi.fn(), driveMatrix: vi.fn() }));
+vi.mock("@/lib/flights/serpapi", async (orig) => ({ ...(await orig<object>()), searchFares: vi.fn() }));
 
 const nominatim = await import("@/lib/geo/nominatim");
 const ors = await import("@/lib/geo/ors");
@@ -26,6 +27,9 @@ const geocodeProperty = vi.mocked(nominatim.geocodeProperty);
 const geocodeText = vi.mocked(nominatim.geocodeText);
 const searchNear = vi.mocked(nominatim.searchNear);
 const driveRoute = vi.mocked(ors.driveRoute);
+const driveMatrix = vi.mocked(ors.driveMatrix);
+const searchFares = vi.mocked((await import("@/lib/flights/serpapi")).searchFares);
+const { runFareBatch, fareStatus } = await import("@/lib/flights/job");
 
 const { PATCH } = await import("@/app/api/properties/[id]/route");
 const { PUT } = await import("@/app/api/settings/route");
@@ -59,6 +63,9 @@ beforeEach(async () => {
   ({ db, close } = await useTestDb());
   geocodeProperty.mockReset().mockResolvedValue({ lat: 39.9, lng: -105.8, source: "osm-venue" });
   driveRoute.mockReset().mockResolvedValue({ hours: 3, miles: 150 });
+  // airports: the i-th nearest is (i + 1) × 30 min away
+  driveMatrix.mockReset().mockImplementation(async (_from, to) => to.map((_, i) => ({ hours: (i + 1) / 2, miles: (i + 1) * 30 })));
+  searchFares.mockReset();
   geocodeText.mockReset();
   // every location has a beach and nothing else
   searchNear.mockReset().mockImplementation(async (q, c) =>
@@ -327,5 +334,137 @@ describe("activity tags", () => {
     expect(res.status).toBe(200);
     expect(await getSettings()).toMatchObject({ tickets: 5, costWeight: 0.5, tagWeights: { skiing: 0, zoo_aquarium: 2 } });
     expect((await PUT(new Request("http://x", json({ ...cur, tickets: 0 })))).status).toBe(400);
+  });
+});
+
+describe("flight fares", () => {
+  const future = (l: ParsedListing): ParsedListing => ({ ...l, arrivalDate: "2030-03-02", checkoutDate: "2030-03-09" });
+  const airportsOf = async (name: string) =>
+    (await db.select().from(propertyAirport).where(eq(propertyAirport.propertyId, (await byName(name)).id))).sort(
+      (a, b) => (a.driveHours ?? 0) - (b.driveHours ?? 0),
+    );
+  const fareOf = async (name: string) => (await getCurrentListings()).rows.find((r) => r.property === name)!.fare;
+
+  beforeEach(async () => {
+    await ingestUpload({
+      filename: "x.pdf",
+      blobUrl: "a",
+      warnings: [],
+      listings: [future(mk("1", "Near")), future(mk("2", "Resort", "Orlando", "FL")), mk("3", "Past", "Tampa", "FL")],
+    });
+    geocodeProperty.mockImplementation(async (p) =>
+      p.name === "Near" ? { lat: 39.9, lng: -105.8, source: "osm-city" } : { lat: 28.4, lng: -81.4, source: "osm-city" },
+    );
+    driveRoute.mockImplementation(async (_o, to) => (to.lat > 39 ? { hours: 2, miles: 90 } : { hours: 27, miles: 1800 }));
+    await runGeocodeBatch();
+    // the Past listing arrives before today, so it's never priced
+    await db.update(listing).set({ arrivalDate: "2020-01-01", checkoutDate: "2020-01-08" }).where(eq(listing.inventoryNumber, "3"));
+  });
+
+  it("gives located properties candidate airports, nearest first", async () => {
+    const a = await airportsOf("Resort");
+    expect(a.length).toBeGreaterThan(1);
+    expect(a.length).toBeLessThanOrEqual(7);
+    expect(a.map((x) => x.iata)).toContain("MCO");
+    expect(a.every((x) => x.auto && !x.pinned && !x.excluded)).toBe(true);
+    expect((await byName("Resort")).airportStatus).toBe("ok");
+  });
+
+  it("prices each fly-to search once (cached), skips drivable and past trips, and picks the best airport", async () => {
+    const a = await airportsOf("Resort");
+    const [near, far] = [a[0].iata, a[1].iata];
+    searchFares.mockResolvedValue({
+      status: "ok",
+      searchUrl: "https://g/flights",
+      options: [
+        { iata: far, priceUsd: 900, airline: "Southwest", stops: 0, durationMin: 200 },
+        { iata: near, priceUsd: 1000, airline: "United", stops: 1, durationMin: 260 },
+      ],
+    });
+    expect(await fareStatus()).toMatchObject({ remaining: 1, usage: 0, cap: 240 });
+    expect(await runFareBatch()).toMatchObject({ searched: 1, remaining: 0, usage: 1 });
+    expect(searchFares).toHaveBeenCalledWith(
+      expect.objectContaining({ origin: "COS", outboundDate: "2030-03-02", passengers: { adults: 2, children: 1, lapInfants: 1 } }),
+    );
+    expect(searchFares.mock.calls[0][0].airports).toEqual(a.map((x) => x.iata).sort());
+
+    // the farther airport is $100 cheaper; +0.5 h each way costs 2 × 0.5 × $25 + gas, so it wins
+    expect(await fareOf("Resort")).toMatchObject({ iata: far, fareUsd: 900, nearestIata: near, seats: 3, searchUrl: "https://g/flights" });
+    expect(await fareOf("Near")).toBeNull(); // drivable
+
+    // cached: nothing to do
+    expect(await runFareBatch()).toMatchObject({ searched: 0, remaining: 0 });
+    expect(searchFares).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops at the monthly cap", async () => {
+    await db.update(settings).set({ serpapiMonthlyCap: 3 });
+    await db.insert(apiUsage).values({ service: "serpapi", month: new Date().toISOString().slice(0, 7), count: 3 });
+    expect(await runFareBatch()).toMatchObject({ searched: 0, capReached: true, remaining: 1 });
+    expect(searchFares).not.toHaveBeenCalled();
+  });
+
+  it("a failed refresh keeps the older good quote", async () => {
+    const [first] = await airportsOf("Resort");
+    searchFares.mockResolvedValue({
+      status: "ok",
+      searchUrl: null,
+      options: [{ iata: first.iata, priceUsd: 800, airline: "A", stops: 0, durationMin: 1 }],
+    });
+    await runFareBatch();
+    await db.update(flightQuote).set({ fetchedAt: new Date("2020-01-01") }); // stale
+    searchFares.mockRejectedValue(new Error("SerpApi 500"));
+    expect(await runFareBatch()).toMatchObject({ searched: 1, failed: 1, usage: 1 });
+    expect(await fareOf("Resort")).toMatchObject({ fareUsd: 800 });
+    const [q] = await db.select().from(flightQuote);
+    expect(q).toMatchObject({ status: "ok", error: "SerpApi 500" });
+  });
+
+  it("no flights found is cached and shown as such", async () => {
+    searchFares.mockResolvedValue({ status: "none", options: [], searchUrl: null });
+    await runFareBatch();
+    expect(await fareOf("Resort")).toMatchObject({ status: "none" });
+    expect((await fareStatus()).remaining).toBe(0);
+  });
+
+  it("excluding or pinning an airport changes what gets searched; unknown codes are rejected", async () => {
+    searchFares.mockResolvedValue({ status: "none", options: [], searchUrl: null });
+    await runFareBatch();
+    const p = await byName("Resort");
+    const [first] = await airportsOf("Resort");
+
+    expect((await patchProp(p.id, { airports: { [first.iata]: "exclude" } })).status).toBe(200);
+    expect((await fareStatus()).remaining).toBe(1); // different airport list = new search
+    expect((await airportsOf("Resort")).find((a) => a.iata === first.iata)).toMatchObject({ excluded: true });
+
+    expect((await patchProp(p.id, { airports: { tpa: "pin" } })).status).toBe(200);
+    expect((await byName("Resort")).airportStatus).toBe("pending"); // fetch its drive time
+    await runGeocodeBatch();
+    const after = await airportsOf("Resort");
+    expect(after.find((a) => a.iata === "TPA")).toMatchObject({ pinned: true });
+    expect(after.find((a) => a.iata === "TPA")?.driveHours).not.toBeNull();
+    expect(after.find((a) => a.iata === first.iata)).toMatchObject({ excluded: true }); // survives the rebuild
+
+    await patchProp(p.id, { airports: { [first.iata]: null } });
+    await runGeocodeBatch();
+    expect((await airportsOf("Resort")).find((a) => a.iata === first.iata)).toMatchObject({ excluded: false, auto: true });
+    expect((await patchProp(p.id, { airports: { ZZQ: "pin" } })).status).toBe(400);
+  });
+
+  it("changing the airport rules in settings rebuilds airport lists", async () => {
+    const cur = await getSettings();
+    const res = await PUT(new Request("http://x", json({ ...cur, maxAirports: 2 })));
+    expect(await res.json()).toMatchObject({ airportsRequeued: true });
+    await runGeocodeBatch();
+    const two = await airportsOf("Resort");
+    expect(two).toHaveLength(2);
+
+    // excluding one frees its slot for the next airport, and the exclusion is remembered
+    await patchProp((await byName("Resort")).id, { airports: { [two[0].iata]: "exclude" } });
+    await db.update(property).set({ airportStatus: "pending" });
+    await runGeocodeBatch();
+    const after = await airportsOf("Resort");
+    expect(after.filter((a) => a.auto && !a.excluded)).toHaveLength(2);
+    expect(after.find((a) => a.iata === two[0].iata)).toMatchObject({ excluded: true, auto: false });
   });
 });

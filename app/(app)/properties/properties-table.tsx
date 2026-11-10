@@ -29,6 +29,61 @@ interface P {
   tagRows: TagRow[];
   tags: Tag[];
   untagged: boolean;
+  airportStatus: string;
+  airportError: string | null;
+  airportRows: { iata: string; driveHours: number | null; auto: boolean; pinned: boolean; excluded: boolean }[];
+}
+
+/** Arrival airports searched for this property. Click to exclude/restore; add a code to pin it. */
+function AirportEditor({ p, send }: { p: P; send: (body: object) => Promise<void> }) {
+  const [code, setCode] = useState("");
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-1">
+        {p.airportRows.map((a) => {
+          const next = a.excluded || a.pinned ? null : "exclude";
+          return (
+            <button
+              key={a.iata}
+              onClick={() => send({ airports: { [a.iata]: next } })}
+              title={`${fmtHours(a.driveHours)} drive to the lodging · ${
+                a.excluded ? "excluded (click to restore)" : a.pinned ? "pinned by you (click to unpin)" : "auto (click to exclude)"
+              }`}
+              className={`rounded border px-1.5 py-0.5 text-[11px] tabular-nums ${
+                a.excluded
+                  ? "border-black/15 text-black/40 line-through dark:border-white/20 dark:text-white/40"
+                  : a.pinned
+                    ? "border-sky-700 bg-sky-700 text-white"
+                    : "border-sky-300 bg-sky-100 text-sky-900"
+              }`}
+            >
+              {a.iata} {a.driveHours != null ? fmtHours(a.driveHours) : ""}
+            </button>
+          );
+        })}
+      </div>
+      <form
+        className="flex items-center gap-1 text-[11px]"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (/^[A-Za-z]{3}$/.test(code)) send({ airports: { [code.toUpperCase()]: "pin" } }).then(() => setCode(""));
+        }}
+      >
+        <input
+          className="w-14 rounded border border-black/20 bg-transparent px-1 py-0.5 uppercase dark:border-white/25"
+          placeholder="IATA"
+          maxLength={3}
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+        />
+        <button className="underline" type="submit">
+          add
+        </button>
+        {p.airportStatus === "pending" && p.lat != null && <span className="text-amber-700">pending</span>}
+        {p.airportStatus === "failed" && <span className="text-red-700">failed: {p.airportError}</span>}
+      </form>
+    </div>
+  );
 }
 
 function TagEditor({ p, send }: { p: P; send: (body: object) => Promise<void> }) {
@@ -96,7 +151,7 @@ function Row({ p }: { p: P }) {
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      setErr("Save failed");
+      setErr((await res.json().catch(() => null))?.error ?? "Save failed");
       return;
     }
     setEdit(false);
@@ -162,6 +217,9 @@ function Row({ p }: { p: P }) {
       <td className="px-2 py-1.5">
         <TagEditor p={p} send={send} />
       </td>
+      <td className="px-2 py-1.5">
+        <AirportEditor p={p} send={send} />
+      </td>
       <td className="whitespace-nowrap px-2 py-1.5 text-right">
         {edit ? (
           <>
@@ -196,7 +254,7 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
   const [note, setNote] = useState("");
   const [reviewOnly, setReviewOnly] = useState(false);
   const queued = rows.filter(
-    (r) => r.geocodeStatus !== "ok" || (r.lat != null && r.tagStatus !== "ok"),
+    (r) => r.geocodeStatus !== "ok" || (r.lat != null && (r.tagStatus !== "ok" || r.airportStatus !== "ok")),
   ).length;
   const needsReview = rows.filter((r) => r.untagged || r.geocodeStatus === "failed").length;
   const shown = reviewOnly ? rows.filter((r) => r.untagged || r.geocodeStatus === "failed") : rows;
@@ -232,7 +290,8 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
       </label>
       <p className="text-xs text-black/50 dark:text-white/50">
         Activity tags are auto-suggested from OpenStreetMap (light chips). Click a tag to toggle it; manual choices
-        (dark chips) are kept when tags are re-run. Hover a tag to see what was found nearby.
+        (dark chips) are kept when tags are re-run. Hover a tag to see what was found nearby. Airports: all
+        airports searched for fares (one search covers them all); click one to exclude it, or add a code to pin one.
       </p>
       {queued > 0 && (
         <button disabled={busy} onClick={() => run(true)} className="rounded border px-3 py-1 text-sm disabled:opacity-50">
@@ -240,7 +299,7 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
         </button>
       )}
       <div className="overflow-x-auto rounded border border-black/10 dark:border-white/15">
-        <table className="w-full min-w-[1000px] text-sm">
+        <table className="w-full min-w-[1200px] text-sm">
           <thead className="bg-black/5 dark:bg-white/10">
             <tr>
               <th className="px-2 py-2 text-left font-medium">Property</th>
@@ -248,6 +307,9 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
               <th className="px-2 py-2 text-left font-medium">Lat / Lng</th>
               <th className="px-2 py-2 text-left font-medium">Drive</th>
               <th className="px-2 py-2 text-left font-medium">Activities</th>
+              <th className="px-2 py-2 text-left font-medium" title="Arrival airports searched for fares, with drive time to the lodging">
+                Airports
+              </th>
               <th />
             </tr>
           </thead>

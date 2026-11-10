@@ -55,6 +55,10 @@ export const property = pgTable(
     // user confirmed the tags (also clears the "untagged" flag for places with no activities)
     tagsReviewed: boolean("tags_reviewed").notNull().default(false),
 
+    // candidate arrival airports (property_airport): pending | ok | failed
+    airportStatus: text("airport_status").notNull().default("pending"),
+    airportError: text("airport_error"),
+
     // manual overrides survive re-geocoding
     latLngOverridden: boolean("lat_lng_overridden").notNull().default(false),
     driveOverridden: boolean("drive_overridden").notNull().default(false),
@@ -108,6 +112,64 @@ export const propertyTag = pgTable(
   (t) => [uniqueIndex("property_tag_unique_idx").on(t.propertyId, t.tag)],
 );
 
+/**
+ * Arrival airports considered for a property, with drive time from the airport to the lodging.
+ * Auto rows are rebuilt when the location changes; pinned/excluded are manual and kept.
+ */
+export const propertyAirport = pgTable(
+  "property_airport",
+  {
+    id: serial("id").primaryKey(),
+    propertyId: integer("property_id")
+      .notNull()
+      .references(() => property.id, { onDelete: "cascade" }),
+    iata: text("iata").notNull(),
+    driveHours: real("drive_hours"),
+    driveMiles: real("drive_miles"),
+    auto: boolean("auto").notNull().default(true), // chosen by the candidate rules
+    pinned: boolean("pinned").notNull().default(false), // always search this one
+    excluded: boolean("excluded").notNull().default(false), // never search this one
+  },
+  (t) => [uniqueIndex("property_airport_unique_idx").on(t.propertyId, t.iata)],
+);
+
+export interface FareOption {
+  iata: string; // arrival airport
+  priceUsd: number; // round trip, all passengers
+  airline: string;
+  stops: number;
+  durationMin: number; // outbound
+}
+
+/** Cached SerpApi Google Flights result for one search (origin -> several airports, dates, passengers). */
+export const flightQuote = pgTable(
+  "flight_quote",
+  {
+    id: serial("id").primaryKey(),
+    origin: text("origin").notNull(), // e.g. "COS"
+    airports: text("airports").notNull(), // sorted, comma-separated arrival IATA codes
+    outboundDate: date("outbound_date", { mode: "string" }).notNull(),
+    returnDate: date("return_date", { mode: "string" }).notNull(),
+    passengers: text("passengers").notNull(), // "adults/children/lap infants", e.g. "2/1/1"
+    status: text("status").notNull(), // ok | none (no flights) | failed
+    error: text("error"),
+    options: jsonb("options").$type<FareOption[]>().notNull().default([]), // cheapest per airport
+    searchUrl: text("search_url"), // Google Flights page for the same search
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("flight_quote_key_idx").on(t.origin, t.airports, t.outboundDate, t.returnDate, t.passengers)],
+);
+
+/** Searches spent per service per month (SerpApi free tier is 250/month). */
+export const apiUsage = pgTable(
+  "api_usage",
+  {
+    service: text("service").notNull(),
+    month: text("month").notNull(), // YYYY-MM (UTC)
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [uniqueIndex("api_usage_key_idx").on(t.service, t.month)],
+);
 
 // Single-row table (id is always 1)
 export const settings = pgTable("settings", {
@@ -129,4 +191,14 @@ export const settings = pgTable("settings", {
   // rough round-trip fare estimate per ticket until real flight prices (Phase 3)
   flightBaseUsd: real("flight_base_usd").notNull().default(120),
   flightPerMileUsd: real("flight_per_mile_usd").notNull().default(0.1),
+
+  // real fares (SerpApi Google Flights)
+  originAirport: text("origin_airport").notNull().default("COS"),
+  lapInfants: integer("lap_infants").notNull().default(1), // in addition to `tickets` seats
+  airportMaxDriveHours: real("airport_max_drive_hours").notNull().default(2.5),
+  hubMaxDriveHours: real("hub_max_drive_hours").notNull().default(4), // nearest big airport, if none closer
+  maxAirports: integer("max_airports").notNull().default(7), // Google Flights' per-search limit
+  extraDriveUsdPerHour: real("extra_drive_usd_per_hour").notNull().default(25),
+  serpapiMonthlyCap: integer("serpapi_monthly_cap").notNull().default(240),
+  fareCacheHours: integer("fare_cache_hours").notNull().default(24),
 });

@@ -19,6 +19,7 @@ export async function POST(req: Request) {
     const db = getDb();
     await db.update(property).set({ geocodeStatus: "pending" }).where(eq(property.geocodeStatus, "failed"));
     await db.update(property).set({ tagStatus: "pending" }).where(eq(property.tagStatus, "failed"));
+    await db.update(property).set({ airportStatus: "pending" }).where(eq(property.airportStatus, "failed"));
   }
   try {
     return NextResponse.json(await runGeocodeBatch());

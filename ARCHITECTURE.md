@@ -38,9 +38,9 @@ names only. Real PDFs are gitignored.
 2. **Activity tags** per property (beach, theme parks, hiking, skiing, kid-friendly) and
    scoring: `final = 0.75 × cost_score + 0.25 × activity_score` (weights configurable);
    untagged properties are flagged.
-3. **Flight pricing** via SerpApi Google Flights: always COS, 3 adults; also price DEN only
-   if international or COS total > configurable threshold (default $900); show DEN only if
-   net savings ≥ $200 after DEN gas + parking. Cache 24h. Batch via Vercel Cron.
+3. **Flight pricing** via SerpApi Google Flights from COS to each property's candidate airports
+   (one search covers them all). Cache 24h; run from a button with a monthly search cap.
+   Later: also price DEN (international or COS total > $900; show if net savings >= $200).
 4. **Map view** (Leaflet + OpenStreetMap), pins colored by score, shares filters with table.
 5. **Email ingest** (webhook with shared secret) + monthly "top picks" email.
 
@@ -62,6 +62,19 @@ names only. Real PDFs are gitignored.
   "ski" found roads and shops). Theme parks need a Wikidata link to count; zoos need a zoo-like
   name or Wikidata. Hiking counts only national/state/provincial parks and forests and wilderness
   areas, not historic sites or trailheads. A town named "... Beach"/"Playa ..." counts as beach.
+
+## Phase 3 notes
+- Candidate arrival airports per property (`property_airport`): scheduled-service airports from
+  OurAirports, drive times by one ORS matrix call. Airports within 2.5 h drive, big ones first,
+  max 7 (Google Flights' limit); if none of them is big, add the nearest big one within 4 h.
+  Users can exclude or pin airports; those choices survive rebuilds.
+- One SerpApi search per (airport list, dates, passengers), cached in `flight_quote`. Round-trip
+  prices in the outbound results are totals for all passengers. Usage is counted per month in
+  `api_usage` and capped in Settings (free plan: 250).
+- Best airport = lowest fare + extra drive vs the nearest candidate (both ways: hours × $/h + gas).
+  Computed on read, so changing $/h doesn't need new searches. A failed refresh keeps the old quote.
+- Passengers: `tickets` seats (first two adults, rest children) + lap infants. The listings-page
+  ticket override scales the fare per seat (approximate, labelled "≈").
 
 ## Phase 1 notes
 - Geocoding runs as a resumable batch endpoint polled by the client (no long-lived functions).

@@ -21,29 +21,45 @@ export interface ScoreInput {
   lat: number | null;
   lng: number | null;
   tags: Tag[];
+  /** real fare for the best arrival airport (from cached SerpApi results) */
+  fare?: { fareUsd: number; extraDriveUsd: number; seats: number } | { status: "none" } | null;
 }
 
 export interface Scored {
   distanceMiles: number | null; // straight line from origin
   travelMode: "drive" | "fly" | null;
   travelUsd: number | null;
+  fareSource: "quote" | "estimate" | null; // real fare vs distance-based estimate
   totalUsd: number | null;
   costScore: number | null; // 0-100, cheapest on the list = 100
   activityScore: number; // 0-100
   score: number | null; // 0-100 weighted blend
 }
 
-/** Round-trip travel cost in USD: gas when drivable, otherwise an estimated fare × tickets. */
+/**
+ * Round-trip travel cost in USD: gas when drivable; otherwise the real fare (+ extra drive from a
+ * farther airport), scaled if the ticket count differs from what was priced; else an estimate.
+ */
 export function travelCost(
-  r: Pick<ScoreInput, "isDrivable" | "driveMiles">,
+  r: Pick<ScoreInput, "isDrivable" | "driveMiles" | "fare">,
   distanceMiles: number | null,
   s: ScoreSettings,
-): Pick<Scored, "travelMode" | "travelUsd"> {
+): Pick<Scored, "travelMode" | "travelUsd" | "fareSource"> {
   if (r.isDrivable && r.driveMiles != null && s.mpg > 0)
-    return { travelMode: "drive", travelUsd: ((2 * r.driveMiles) / s.mpg) * s.gasPriceUsd };
+    return { travelMode: "drive", travelUsd: ((2 * r.driveMiles) / s.mpg) * s.gasPriceUsd, fareSource: null };
+  if (r.fare && "fareUsd" in r.fare)
+    return {
+      travelMode: "fly",
+      travelUsd: (r.fare.fareUsd * s.tickets) / Math.max(1, r.fare.seats) + r.fare.extraDriveUsd,
+      fareSource: "quote",
+    };
   if (distanceMiles != null)
-    return { travelMode: "fly", travelUsd: s.tickets * (s.flightBaseUsd + s.flightPerMileUsd * distanceMiles) };
-  return { travelMode: null, travelUsd: null };
+    return {
+      travelMode: "fly",
+      travelUsd: s.tickets * (s.flightBaseUsd + s.flightPerMileUsd * distanceMiles),
+      fareSource: "estimate",
+    };
+  return { travelMode: null, travelUsd: null, fareSource: null };
 }
 
 export function activityScore(tags: Tag[], weights: TagWeights) {
