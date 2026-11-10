@@ -37,9 +37,13 @@ type SortKey =
   | "location"
   | "unitType"
   | "priceUsd"
+  | "travelUsd"
   | "driveHours"
   | "distanceMiles";
 type Sort = { key: SortKey; dir: 1 | -1 };
+
+// first click on a column: best score first, everything else low to high / A to Z
+const FIRST_DIR: Partial<Record<SortKey, 1 | -1>> = { score: -1 };
 
 const PRESETS: { label: string; sort: Sort }[] = [
   { label: "Score (best)", sort: { key: "score", dir: -1 } },
@@ -48,6 +52,8 @@ const PRESETS: { label: string; sort: Sort }[] = [
   { label: "Total (high to low)", sort: { key: "totalUsd", dir: -1 } },
   { label: "Lodging (low to high)", sort: { key: "priceUsd", dir: 1 } },
   { label: "Lodging (high to low)", sort: { key: "priceUsd", dir: -1 } },
+  { label: "Travel (low to high)", sort: { key: "travelUsd", dir: 1 } },
+  { label: "Travel (high to low)", sort: { key: "travelUsd", dir: -1 } },
   { label: "Arrival (soonest)", sort: { key: "arrivalDate", dir: 1 } },
   { label: "Arrival (latest)", sort: { key: "arrivalDate", dir: -1 } },
   { label: "Distance (closest)", sort: { key: "distanceMiles", dir: 1 } },
@@ -118,14 +124,23 @@ export default function ListingsTable({
       });
   }, [rows, from, to, drivableOnly, unit, country, state, tag, maxPrice, sort]);
 
-  const th = (key: SortKey, label: string, cls = "") => (
-    <th className={`px-2 py-2 text-left font-medium ${cls}`}>
-      <button onClick={() => setSort((s) => ({ key, dir: s.key === key ? (-s.dir as 1 | -1) : 1 }))}>
-        {label}
-        {sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
-      </button>
-    </th>
-  );
+  const th = (key: SortKey, label: string, cls = "") => {
+    const active = sort.key === key;
+    return (
+      <th className={`px-2 py-2 text-left font-medium ${cls}`} aria-sort={active ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+        <button
+          className="group inline-flex items-center gap-1 whitespace-nowrap"
+          title={`Sort by ${label.toLowerCase()}`}
+          onClick={() => setSort((s) => ({ key, dir: s.key === key ? (-s.dir as 1 | -1) : (FIRST_DIR[key] ?? 1) }))}
+        >
+          {label}
+          <span className={active ? "" : "opacity-30 group-hover:opacity-70"}>
+            {active ? (sort.dir === 1 ? "▲" : "▼") : "↕"}
+          </span>
+        </button>
+      </th>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -225,12 +240,12 @@ export default function ListingsTable({
             <tr>
               {th("score", "Score", "text-right")}
               {th("arrivalDate", "Arrival")}
-              <th className="px-2 py-2 text-right font-medium">In</th>
+              {th("arrivalDate", "In", "text-right")}
               {th("property", "Property")}
               {th("location", "Location")}
               {th("unitType", "Unit")}
               {th("priceUsd", "Lodging", "text-right")}
-              <th className="px-2 py-2 text-right font-medium">Travel</th>
+              {th("travelUsd", "Travel", "text-right")}
               {th("totalUsd", "Total", "text-right")}
               {th("driveHours", "Drive")}
               {th("distanceMiles", "Distance", "text-right")}
