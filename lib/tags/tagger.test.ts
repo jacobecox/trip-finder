@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { RULES, type Place } from "./rules";
-import { matches, tagLocation } from "./tagger";
+import { applyDerived, matches, tagLocation } from "./tagger";
 
 const center = { lat: 28.33, lng: -81.5 };
 const at = (name: string, category: string, type: string, milesNorth = 1): Place => ({
@@ -58,7 +58,7 @@ describe("tightened rules", () => {
   });
 
   it("kid-friendly skips splash pads, pools and aquatic centres", () => {
-    const r = RULES.find((x) => x.tag === "kid_friendly")!;
+    const r = RULES.find((x) => x.tag === "zoo_aquarium")!;
     const out = matches(r, center, [
       at("Splash Pad", "leisure", "water_park"),
       at("Mesa Aquatic Complex", "leisure", "water_park"),
@@ -80,10 +80,35 @@ describe("tagLocation", () => {
     });
     const tags = await tagLocation(center, search);
     expect(tags.beach).toEqual({ present: true, evidence: "beach within 3 mi: Cocoa Beach" });
-    expect(tags.kid_friendly.present).toBe(true);
+    expect(tags.zoo_aquarium.present).toBe(true);
     expect(tags.hiking.present).toBe(false);
     expect(tags.skiing.present).toBe(false);
     // kid-friendly matched on "zoo", so "aquarium" and "water park" were never searched
     expect(search.mock.calls.map((c) => c[0])).not.toContain("aquarium");
+  });
+});
+
+describe("applyDerived", () => {
+  const none = () =>
+    Object.fromEntries(
+      ["beach", "theme_park", "zoo_aquarium", "hiking", "skiing", "scenic", "city"].map((t) => [t, { present: false, evidence: null }]),
+    ) as Awaited<ReturnType<typeof tagLocation>>;
+
+  it("scenic comes from beach / hiking / skiing; theme parks alone don't count", () => {
+    const r = none();
+    r.theme_park = { present: true, evidence: "x" };
+    expect(applyDerived(r, { name: "Kissimmee", population: 60894 }).scenic.present).toBe(false);
+    r.hiking = { present: true, evidence: "x" };
+    r.beach = { present: true, evidence: "x" };
+    expect(applyDerived(r, { name: "Kissimmee", population: 60894 }).scenic).toEqual({ present: true, evidence: "from beach, hiking" });
+  });
+
+  it("city means the listed city has 100k+ people", () => {
+    expect(applyDerived(none(), { name: "Las Vegas", population: 653533 }).city).toEqual({
+      present: true,
+      evidence: "Las Vegas: population 653,533",
+    });
+    expect(applyDerived(none(), { name: "Kissimmee", population: 60894 }).city.present).toBe(false);
+    expect(applyDerived(none(), { name: "Nowhere", population: null }).city).toEqual({ present: false, evidence: null });
   });
 });

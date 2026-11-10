@@ -31,16 +31,17 @@ describe("travelCost", () => {
 
 describe("activityScore", () => {
   it("is the weighted share of tags present", () => {
-    // weights total 9; kid_friendly 3 + beach 2 = 5
-    expect(activityScore(["kid_friendly", "beach"], DEFAULT_TAG_WEIGHTS)).toBeCloseTo((100 * 5) / 9);
+    // default weights total 9 (city is 0); zoo 2 + beach 2 = 4
+    expect(activityScore(["zoo_aquarium", "beach"], DEFAULT_TAG_WEIGHTS)).toBeCloseTo((100 * 4) / 9);
+    expect(activityScore(["city"], DEFAULT_TAG_WEIGHTS)).toBe(0);
     expect(activityScore([], DEFAULT_TAG_WEIGHTS)).toBe(0);
-    expect(activityScore(["beach"], { ...DEFAULT_TAG_WEIGHTS, beach: 0, kid_friendly: 0, theme_park: 0, hiking: 0, skiing: 0 })).toBe(0);
+    expect(activityScore(["beach"], Object.fromEntries(Object.keys(DEFAULT_TAG_WEIGHTS).map((k) => [k, 0])) as typeof DEFAULT_TAG_WEIGHTS)).toBe(0);
   });
 });
 
 describe("scoreListings", () => {
   const near = { priceUsd: 100, isDrivable: true, driveMiles: 250, lat: 39.9, lng: -105.8, tags: [] as never[] };
-  const far = { priceUsd: 300, isDrivable: false, driveMiles: null, lat: 28.33, lng: -81.5, tags: ["beach", "theme_park", "kid_friendly"] as const };
+  const far = { priceUsd: 300, isDrivable: false, driveMiles: null, lat: 28.33, lng: -81.5, tags: ["beach", "theme_park", "zoo_aquarium"] as const };
   const lost = { priceUsd: 50, isDrivable: false, driveMiles: null, lat: null, lng: null, tags: [] as never[] };
 
   it("cheapest gets cost score 100, priciest 0, and unknown cost is unscored", () => {
@@ -52,7 +53,7 @@ describe("scoreListings", () => {
     expect(c).toMatchObject({ totalUsd: null, costScore: null, score: null });
     // final = 0.75 × cost + 0.25 × activity
     expect(a.score).toBeCloseTo(75);
-    expect(b.score).toBeCloseTo(0.25 * ((100 * 7) / 9));
+    expect(b.score).toBeCloseTo(0.25 * ((100 * 6) / 9));
   });
 
   it("respects custom weights and single-row lists", () => {

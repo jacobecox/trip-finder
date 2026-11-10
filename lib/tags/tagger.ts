@@ -1,6 +1,7 @@
 import { TAGS, type Tag } from "@/lib/tags/constants";
 import { distanceKm, type LatLng } from "@/lib/geo/util";
-import { RULES, type Place, type TagRule } from "./rules";
+import { CITY_MIN_POPULATION, RULES, SCENIC_FROM, type Place, type TagRule } from "./rules";
+import { TAG_LABELS } from "./constants";
 
 const KM_PER_MILE = 1.609344;
 const MAX_NAMES = 3;
@@ -18,6 +19,21 @@ export function matches(rule: TagRule, center: LatLng, places: Place[]): Place[]
     seen.add(key);
     return true;
   });
+}
+
+/** Pure: tags that come from other information rather than nearby searches. */
+export function applyDerived(result: TagResult, city: { name: string; population: number | null }): TagResult {
+  const out = { ...result };
+  const from = SCENIC_FROM.filter((t) => result[t].present);
+  out.scenic = from.length
+    ? { present: true, evidence: `from ${from.map((t) => TAG_LABELS[t].toLowerCase()).join(", ")}` }
+    : { present: false, evidence: null };
+  const pop = city.population;
+  out.city = {
+    present: pop != null && pop >= CITY_MIN_POPULATION,
+    evidence: pop == null ? null : `${city.name}: population ${pop.toLocaleString("en-US")}`,
+  };
+  return out;
 }
 
 /** Runs each rule's searches (stopping early once satisfied) and builds tags with evidence. */

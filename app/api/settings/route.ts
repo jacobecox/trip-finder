@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getDb, property, settings, TAGS } from "@/lib/db";
+import { DEFAULT_TAG_WEIGHTS, getDb, property, settings, TAGS } from "@/lib/db";
 import { geocodeText } from "@/lib/geo/nominatim";
 import { getSettings } from "@/lib/queries";
 
@@ -13,7 +13,7 @@ const Body = z.object({
   maxDriveHours: z.number().min(0.5).max(48),
   costWeight: z.number().min(0).max(100).optional(),
   activityWeight: z.number().min(0).max(100).optional(),
-  tagWeights: z.record(z.enum(TAGS), z.number().min(0).max(100)).optional(),
+  tagWeights: z.partialRecord(z.enum(TAGS), z.number().min(0).max(100)).optional(),
   tickets: z.number().int().min(1).max(20).optional(),
   mpg: z.number().min(1).max(200).optional(),
   gasPriceUsd: z.number().min(0).max(50).optional(),
@@ -53,7 +53,10 @@ export async function PUT(req: Request) {
       maxDriveHours: b.maxDriveHours,
       costWeight: b.costWeight ?? cur.costWeight,
       activityWeight: b.activityWeight ?? cur.activityWeight,
-      tagWeights: b.tagWeights ?? cur.tagWeights,
+      // merge so partial updates work; drop keys for tags that no longer exist
+      tagWeights: Object.fromEntries(
+        TAGS.map((t) => [t, b.tagWeights?.[t] ?? cur.tagWeights[t] ?? DEFAULT_TAG_WEIGHTS[t]]),
+      ) as typeof cur.tagWeights,
       tickets: b.tickets ?? cur.tickets,
       mpg: b.mpg ?? cur.mpg,
       gasPriceUsd: b.gasPriceUsd ?? cur.gasPriceUsd,

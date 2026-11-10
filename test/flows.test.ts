@@ -12,7 +12,12 @@ import { useTestDb } from "./db";
 
 vi.mock("@/lib/auth", () => ({ requireUser: async () => ({ email: "me@example.com" }) }));
 vi.mock("@/lib/storage", () => ({ getBlobStore: () => ({ put: async () => "mem://pdf" }) }));
-vi.mock("@/lib/geo/nominatim", () => ({ geocodeProperty: vi.fn(), geocodeText: vi.fn(), searchNear: vi.fn() }));
+vi.mock("@/lib/geo/nominatim", () => ({
+  geocodeProperty: vi.fn(),
+  geocodeText: vi.fn(),
+  searchNear: vi.fn(),
+  cityPopulation: vi.fn(async () => null),
+}));
 vi.mock("@/lib/geo/ors", async (orig) => ({ ...(await orig<object>()), driveRoute: vi.fn() }));
 
 const nominatim = await import("@/lib/geo/nominatim");
@@ -266,10 +271,10 @@ describe("activity tags", () => {
     );
     geocodeProperty.mockImplementation(async (p) => ({ lat: p.name === "Resort" ? 39.9 : 38.5, lng: -105.8, source: "osm-city" }));
     expect(await runGeocodeBatch()).toMatchObject({ processed: 2, remaining: 0 });
-    expect(await tagsOf("Resort")).toMatchObject({ tagStatus: "ok", tags: ["beach"], untagged: false });
+    expect(await tagsOf("Resort")).toMatchObject({ tagStatus: "ok", tags: ["beach", "scenic"], untagged: false });
     expect(await tagsOf("Empty")).toMatchObject({ tagStatus: "ok", tags: [], untagged: true });
     const { rows } = await getCurrentListings();
-    expect(rows.find((r) => r.property === "Resort")).toMatchObject({ tags: ["beach"], untagged: false });
+    expect(rows.find((r) => r.property === "Resort")).toMatchObject({ tags: ["beach", "scenic"], untagged: false });
   });
 
   it("untagged until tagging runs; 'reviewed' clears the flag for places with no activities", async () => {
@@ -285,7 +290,7 @@ describe("activity tags", () => {
   it("manual tags win over auto tags and survive re-tagging; reset clears them", async () => {
     await runGeocodeBatch();
     const p = await tagsOf("Resort");
-    await patchProp(p.id, { tags: { beach: false, skiing: true } });
+    await patchProp(p.id, { tags: { beach: false, scenic: false, skiing: true } });
     expect((await tagsOf("Resort")).tags).toEqual(["skiing"]);
 
     await db.update(property).set({ tagStatus: "pending" });
@@ -295,7 +300,7 @@ describe("activity tags", () => {
     expect(beachRow).toMatchObject({ osm: true, manual: false, osmEvidence: expect.stringContaining("Test Beach") });
 
     await patchProp(p.id, { resetTags: true });
-    expect((await tagsOf("Resort")).tags).toEqual(["beach"]);
+    expect((await tagsOf("Resort")).tags).toEqual(["beach", "scenic"]);
   });
 
   it("moving a property (manual lat/lng) re-runs tagging at the new spot", async () => {
@@ -320,7 +325,7 @@ describe("activity tags", () => {
       new Request("http://x", json({ ...cur, tickets: 5, costWeight: 0.5, tagWeights: { ...cur.tagWeights, skiing: 0 } })),
     );
     expect(res.status).toBe(200);
-    expect(await getSettings()).toMatchObject({ tickets: 5, costWeight: 0.5, tagWeights: { skiing: 0, kid_friendly: 3 } });
+    expect(await getSettings()).toMatchObject({ tickets: 5, costWeight: 0.5, tagWeights: { skiing: 0, zoo_aquarium: 2 } });
     expect((await PUT(new Request("http://x", json({ ...cur, tickets: 0 })))).status).toBe(400);
   });
 });

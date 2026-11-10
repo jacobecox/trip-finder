@@ -15,6 +15,13 @@
       "when": 1794269200523,
       "tag": "0001_clear_titania",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794278405370,
+      "tag": "0002_chilly_nextwave",
+      "breakpoints": true
     }
   ]
 }

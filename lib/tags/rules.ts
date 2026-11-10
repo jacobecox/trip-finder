@@ -27,7 +27,12 @@ const BEACHLIKE = /\b(beach|playa|plage|praia|spiaggia|strand|shore|sands?|cove)
 const NOT_A_WATER_PARK = /splash\s*pad|spray\s*(ground|park)|sprayground|aquatic|pool|water\s*wall/i;
 const PARKLIKE = /\b(national|state)\s+(park|forest|monument|recreation area|seashore)\b|\bwilderness\b/i;
 
-/** Several rules may feed one tag; any satisfied rule applies it. Radii are in miles. */
+/** Listed city with at least this many people counts as a city trip. */
+export const CITY_MIN_POPULATION = 100_000;
+/** Scenic is derived from these (no extra lookups). */
+export const SCENIC_FROM = ["beach", "hiking", "skiing"] as const;
+
+/** Search-based rules. Several may feed one tag; any satisfied rule applies it. Radii are in miles. */
 export const RULES: TagRule[] = [
   {
     tag: "beach",
@@ -75,7 +80,7 @@ export const RULES: TagRule[] = [
     minCount: 2,
   },
   {
-    tag: "kid_friendly",
+    tag: "zoo_aquarium",
     label: "zoo / aquarium / water park",
     radiusMiles: 10,
     queries: ["zoo", "aquarium", "water park"],

@@ -1,8 +1,8 @@
 import { and, asc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { getDb, property, propertyTag, TAGS } from "@/lib/db";
 import { getSettings } from "@/lib/queries";
-import { tagLocation } from "@/lib/tags/tagger";
-import { geocodeProperty, searchNear } from "./nominatim";
+import { applyDerived, tagLocation } from "@/lib/tags/tagger";
+import { cityPopulation, geocodeProperty, searchNear } from "./nominatim";
 import { driveRoute, inNorthAmerica } from "./ors";
 import { QuotaError } from "./util";
 
@@ -21,8 +21,10 @@ export async function countPending() {
   return r.n;
 }
 
-async function saveTags(propertyId: number, lat: number, lng: number) {
-  const tags = await tagLocation({ lat, lng }, searchNear);
+async function saveTags(p: typeof property.$inferSelect, lat: number, lng: number) {
+  const propertyId = p.id;
+  const found = await tagLocation({ lat, lng }, searchNear);
+  const tags = applyDerived(found, { name: p.city, population: await cityPopulation(p) });
   const rows = TAGS.map((tag) => ({ propertyId, tag, osm: tags[tag].present, osmEvidence: tags[tag].evidence }));
   // manual choices live in their own column and are never touched here
   await getDb()
@@ -97,7 +99,7 @@ export async function runGeocodeBatch(budgetMs = 40_000) {
 
     if (p.tagStatus === "pending" && lat != null && lng != null) {
       try {
-        await saveTags(p.id, lat, lng);
+        await saveTags(p, lat, lng);
         await db.update(property).set({ tagStatus: "ok", tagError: null }).where(eq(property.id, p.id));
       } catch (e) {
         if (e instanceof QuotaError) {

@@ -55,6 +55,9 @@ names only. Real PDFs are gitignored.
   ticket changes apply immediately (the listings page can override tickets client-side).
   cost_score is min-max over the current list (cheapest = 100).
 - "Untagged" = tagging not done, or no tags found and not marked reviewed.
+- Tags: beach, theme_park, zoo_aquarium, hiking, skiing (nearby searches), scenic (derived from
+  beach/hiking/skiing), city (listed city population >= 100k via OSM extratags). "Kid-friendly"
+  was dropped as misleading; adults-only/casino suitability isn't detectable from OSM.
 
 ## Phase 1 notes
 - Geocoding runs as a resumable batch endpoint polled by the client (no long-lived functions).

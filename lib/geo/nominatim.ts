@@ -75,6 +75,26 @@ export async function geocodeProperty(p: {
   return city ? { ...city, source: "osm-city" } : null;
 }
 
+/** Population of the listed city (OSM extratags), trying the simplified name too. */
+export async function cityPopulation(p: { city: string; state: string; country: string; countryCode: string }) {
+  const short = p.city.split(",")[0].trim();
+  for (const q of [...new Set([[p.city, p.state, p.country], [short, p.state, p.country]].map((x) => x.filter(Boolean).join(", ")))]) {
+    await throttle("nominatim", MIN_INTERVAL_MS);
+    const qs = new URLSearchParams({ q, format: "jsonv2", limit: "1", extratags: "1" });
+    const cc = A2[p.countryCode.toUpperCase()];
+    if (cc) qs.set("countrycodes", cc);
+    const res = await fetch(`${BASE}?${qs}`, { headers: { "User-Agent": USER_AGENT, "Accept-Language": "en" } });
+    if (res.status === 403 || res.status === 429) throw new QuotaError("Nominatim");
+    if (!res.ok) throw new Error(`Nominatim ${res.status}`);
+    const [hit] = (await res.json()) as { extratags?: Record<string, string> }[];
+    if (hit) {
+      const pop = Number(hit.extratags?.population?.replace(/[^\d]/g, ""));
+      return Number.isFinite(pop) && pop > 0 ? pop : null;
+    }
+  }
+  return null;
+}
+
 export async function geocodeText(text: string): Promise<LatLng | null> {
   return search(text, "");
 }
