@@ -5,6 +5,7 @@ import { getSettings } from "@/lib/queries";
 import { applyDerived, tagLocation } from "@/lib/tags/tagger";
 import { cityPopulation, geocodeProperty, searchNear } from "./nominatim";
 import { driveMatrix, driveRoute, inNorthAmerica } from "./ors";
+import { osrmMatrix } from "./osrm";
 import { QuotaError } from "./util";
 
 export function computeDrivable(hours: number | null | undefined, max: number) {
@@ -52,7 +53,11 @@ export async function saveAirports(propertyId: number, at: { lat: number; lng: n
   const near = nearbyAirports(at);
   const ask = [...near.map((a) => a.iata), ...pinned.filter((i) => !near.some((a) => a.iata === i))];
   const points = ask.map((i) => airportByIata(i)!).filter(Boolean);
-  const drives = await driveMatrix(at, points);
+  // ORS's matrix quota has run out well below its advertised limit; OSRM gives near-identical times
+  const drives = await driveMatrix(at, points).catch((e) => {
+    if (e instanceof QuotaError) return osrmMatrix(at, points);
+    throw e;
+  });
   const reachable = points.flatMap((a, i) => (drives[i] ? [{ iata: a.iata, large: a.large, ...drives[i]! }] : []));
   // excluded airports don't take one of the slots
   const excluded = new Set(manual.filter((r) => r.excluded).map((r) => r.iata));

@@ -19,6 +19,7 @@ vi.mock("@/lib/geo/nominatim", () => ({
   cityPopulation: vi.fn(async () => null),
 }));
 vi.mock("@/lib/geo/ors", async (orig) => ({ ...(await orig<object>()), driveRoute: vi.fn(), driveMatrix: vi.fn() }));
+vi.mock("@/lib/geo/osrm", () => ({ osrmMatrix: vi.fn() }));
 vi.mock("@/lib/flights/serpapi", async (orig) => ({ ...(await orig<object>()), searchFares: vi.fn() }));
 
 const nominatim = await import("@/lib/geo/nominatim");
@@ -28,6 +29,7 @@ const geocodeText = vi.mocked(nominatim.geocodeText);
 const searchNear = vi.mocked(nominatim.searchNear);
 const driveRoute = vi.mocked(ors.driveRoute);
 const driveMatrix = vi.mocked(ors.driveMatrix);
+const osrmMatrix = vi.mocked((await import("@/lib/geo/osrm")).osrmMatrix);
 const searchFares = vi.mocked((await import("@/lib/flights/serpapi")).searchFares);
 const { runFareBatch, fareStatus } = await import("@/lib/flights/job");
 
@@ -66,6 +68,7 @@ beforeEach(async () => {
   // airports: the i-th nearest is (i + 1) × 30 min away
   driveMatrix.mockReset().mockImplementation(async (_from, to) => to.map((_, i) => ({ hours: (i + 1) / 2, miles: (i + 1) * 30 })));
   searchFares.mockReset();
+  osrmMatrix.mockReset();
   geocodeText.mockReset();
   // every location has a beach and nothing else
   searchNear.mockReset().mockImplementation(async (q, c) =>
@@ -449,6 +452,16 @@ describe("flight fares", () => {
     await runGeocodeBatch();
     expect((await airportsOf("Resort")).find((a) => a.iata === first.iata)).toMatchObject({ excluded: false, auto: true });
     expect((await patchProp(p.id, { airports: { ZZQ: "pin" } })).status).toBe(400);
+  });
+
+  it("falls back to OSRM when ORS's matrix quota is used up", async () => {
+    await db.update(property).set({ airportStatus: "pending" });
+    await db.delete(propertyAirport);
+    driveMatrix.mockRejectedValue(new QuotaError("OpenRouteService"));
+    osrmMatrix.mockImplementation(async (_from, to) => to.map((_, i) => ({ hours: (i + 1) / 2, miles: (i + 1) * 30 })));
+    expect(await runGeocodeBatch()).toMatchObject({ quotaExceeded: false, remaining: 0 });
+    expect(osrmMatrix).toHaveBeenCalled();
+    expect((await airportsOf("Resort")).map((a) => a.iata)).toContain("MCO");
   });
 
   it("changing the airport rules in settings rebuilds airport lists", async () => {
