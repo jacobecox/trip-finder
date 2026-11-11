@@ -98,3 +98,21 @@ names only. Real PDFs are gitignored.
 - Geocoding runs as a resumable batch endpoint polled by the client (no long-lived functions).
 - Manual overrides (lat/lng, drive hours) have per-field flags and survive re-geocoding.
 - Changing max drive hours recomputes `is_drivable` in SQL; changing origin re-runs routing.
+
+## Phase 5: email import + top-picks email
+- Gmail filter auto-forwards the monthly email to trips@jacobcox.dev. Cloudflare Email Routing hands
+  it to the Worker in `email-worker/`, which posts the largest PDF attachment to `/api/ingest/email`
+  (Bearer `EMAIL_SECRET`). Mail from senders not in `ALLOWED_SENDERS` is rejected, except Gmail's
+  forwarding-confirmation email, which is forwarded so you can confirm. Gmail auto-forwarding keeps
+  your Gmail address as the envelope sender, so that address is the allowlist entry.
+- The webhook imports like an upload (same `importPdf`; a repeat of the newest PDF's sha256 is
+  skipped), answers at once, then processes in `after()` for up to ~270 s: locate/tag -> flights ->
+  email. Work left over continues in a fresh run of `/api/cron/process` (self-call, max 8 hops, only
+  while progress is made); a daily Vercel Cron (14:00 UTC) is the backstop.
+- Flights are priced automatically only when the searches needed fit in this month's remaining
+  SerpApi cap; otherwise the email says to press "Price flights" after the plan renews.
+- The top-picks email (best trip at each of the 10 best resorts, same scoring as the listings page)
+  is sent once per email import: `digest_sent_at` is claimed before sending and cleared if the send
+  fails. If free-API limits keep locations pending, it goes out anyway after 36 h with a note.
+- Sending goes through the same Worker (`POST /send`): Workers can only send to verified Email
+  Routing destinations, so the Worker always sends to `FORWARD_TO`, and the app never holds an address.

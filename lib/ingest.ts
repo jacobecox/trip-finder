@@ -1,7 +1,10 @@
-import { eq, inArray } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import { desc, eq, inArray } from "drizzle-orm";
 import { getDb, listing, listingsUpload, property } from "@/lib/db";
 import { normalizeKey } from "@/lib/normalize";
+import { parsePdf } from "@/lib/parser/extract";
 import type { ParsedListing, ParseWarning } from "@/lib/parser/types";
+import { getBlobStore } from "@/lib/storage";
 
 const CHUNK = 500;
 
@@ -17,6 +20,8 @@ export async function ingestUpload(input: {
   blobUrl: string;
   listings: ParsedListing[];
   warnings: ParseWarning[];
+  source?: "upload" | "email";
+  contentHash?: string;
 }) {
   const db = getDb();
   const [upload] = await db
@@ -27,6 +32,8 @@ export async function ingestUpload(input: {
       rowCount: input.listings.length,
       warningCount: input.warnings.length,
       warnings: JSON.stringify(input.warnings),
+      source: input.source ?? "upload",
+      contentHash: input.contentHash ?? null,
     })
     .returning();
 
@@ -71,4 +78,28 @@ export async function ingestUpload(input: {
     throw e;
   }
   return upload;
+}
+
+export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+
+/**
+ * Parse -> store the PDF -> save listings. Shared by the upload page and the email webhook.
+ * Email imports return "duplicate" when the newest upload has the same PDF hash (a re-forwarded
+ * or retried email).
+ */
+export async function importPdf(input: { filename: string; bytes: Uint8Array; source: "upload" | "email" }) {
+  const contentHash = sha256(input.bytes);
+  if (input.source === "email") {
+    const [latest] = await getDb()
+      .select({ id: listingsUpload.id, contentHash: listingsUpload.contentHash })
+      .from(listingsUpload)
+      .orderBy(desc(listingsUpload.id))
+      .limit(1);
+    if (latest?.contentHash === contentHash) return { status: "duplicate" as const, uploadId: latest.id };
+  }
+  const { listings, warnings } = await parsePdf(input.bytes);
+  if (listings.length === 0) return { status: "empty" as const, warnings };
+  const blobUrl = await getBlobStore().put(input.filename, input.bytes, "application/pdf");
+  const upload = await ingestUpload({ filename: input.filename, blobUrl, listings, warnings, source: input.source, contentHash });
+  return { status: "ok" as const, upload, rowCount: listings.length, warnings };
 }

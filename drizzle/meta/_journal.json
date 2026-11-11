@@ -36,6 +36,13 @@
       "when": 1794343774471,
       "tag": "0004_same_caretaker",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794407400170,
+      "tag": "0005_lively_daredevil",
+      "breakpoints": true
     }
   ]
 }

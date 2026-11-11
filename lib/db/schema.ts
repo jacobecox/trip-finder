@@ -24,6 +24,9 @@ export const listingsUpload = pgTable("listings_upload", {
   rowCount: integer("row_count").notNull().default(0),
   warningCount: integer("warning_count").notNull().default(0),
   warnings: text("warnings"), // JSON-encoded ParseWarning[]
+  source: text("source").notNull().default("upload"), // "upload" | "email"
+  contentHash: text("content_hash"), // sha256 of the PDF; skips re-imports of the same email
+  digestSentAt: timestamp("digest_sent_at", { withTimezone: true }), // top-picks email (email imports only)
 });
 
 export const property = pgTable(

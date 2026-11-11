@@ -1,0 +1,19 @@
+{
+  "name": "trip-finder-email",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "mimetext": "3.0.28",
+    "postal-mime": "4.2.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261110.1",
+    "typescript": "5",
+    "wrangler": "4.160.0"
+  }
+}
