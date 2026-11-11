@@ -19,3 +19,5 @@ next-env.d.ts
 
 # fixtures contain real inventory PDFs; keep out of the public repo
 fixtures/*.pdf
+.env*
+!.env.example
