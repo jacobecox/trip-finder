@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { Spinner } from "@/components/ui";
 
 interface Warning {
   page: number;
@@ -88,11 +89,13 @@ export default function Uploader() {
           const f = e.dataTransfer.files[0];
           if (f) handle(f);
         }}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 text-center ${
-          drag ? "border-blue-500 bg-blue-50 dark:bg-blue-950" : "border-black/20 dark:border-white/25"
+        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-12 text-center transition-colors ${
+          drag ? "border-accent bg-accent/10" : "border-line bg-surface hover:border-accent/60 hover:bg-accent/5"
         }`}
       >
-        <span>Drag a PDF here, or click to choose</span>
+        <span className="text-4xl" aria-hidden>📄</span>
+        <span className="font-medium">Drag the PDF here, or click to choose it</span>
+        <span className="text-xs text-muted">Availability list from the exchange (.pdf)</span>
         <input
           type="file"
           accept="application/pdf,.pdf"
@@ -105,8 +108,13 @@ export default function Uploader() {
         />
       </label>
 
-      {status && <p className="text-sm">{status}</p>}
-      {error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {status && (
+        <p className="flex items-center gap-2 text-sm">
+          {status !== "Done." && <Spinner className="h-4 w-4 text-accent" />}
+          {status === "Done." ? "✓ Done." : status}
+        </p>
+      )}
+      {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
       {result && result.rowCount > 0 && (
         <p className="text-sm">
           Parsed <strong>{result.rowCount}</strong> rows, <strong>{result.warnings.length}</strong> warnings.
@@ -114,19 +122,19 @@ export default function Uploader() {
       )}
       {progress && (
         <div>
-          <div className="h-2 overflow-hidden rounded bg-black/10 dark:bg-white/15">
+          <div className="h-2 overflow-hidden rounded-full bg-white/10">
             <div
-              className="h-full bg-blue-600 transition-all"
+              className="h-full rounded-full bg-accent transition-all"
               style={{ width: `${(progress.done / Math.max(progress.total, 1)) * 100}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-black/60 dark:text-white/60">
+          <p className="mt-1 text-xs text-muted">
             Located &amp; tagged {progress.done} of {progress.total} properties (about 10 seconds each)
           </p>
         </div>
       )}
       {result && result.warnings.length > 0 && (
-        <ul className="space-y-1 rounded bg-amber-50 p-3 text-sm text-amber-900">
+        <ul className="space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
           {result.warnings.map((w, i) => (
             <li key={i}>
               Page {w.page}, row {w.row}
@@ -136,7 +144,7 @@ export default function Uploader() {
         </ul>
       )}
       {finished && (
-        <Link href="/" className="inline-block text-sm underline">
+        <Link href="/" className="btn btn-primary">
           View listings →
         </Link>
       )}

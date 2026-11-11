@@ -1,35 +1,34 @@
 import Link from "next/link";
-import { signOut } from "@/lib/auth";
+import { auth, isAdminEmail, signOut } from "@/lib/auth";
+import { SubmitButton } from "@/components/ui";
+import { Logo } from "@/components/logo";
+import Nav from "./nav";
 
-const links = [
-  { href: "/", label: "Listings" },
-  { href: "/upload", label: "Upload" },
-  { href: "/properties", label: "Properties" },
-  { href: "/settings", label: "Settings" },
-];
-
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const user = (await auth())?.user;
+  const firstName = user?.name?.split(" ")[0];
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-12">
-      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-black/10 py-3 dark:border-white/15">
-        <span className="font-semibold">Trip Finder</span>
-        <nav className="flex flex-1 flex-wrap gap-4 text-sm">
-          {links.map((l) => (
-            <Link key={l.href} href={l.href} className="hover:underline">
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/login" });
-          }}
-        >
-          <button className="text-sm text-black/60 hover:underline dark:text-white/60">Sign out</button>
-        </form>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-[1100] border-b border-line bg-bg/85 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5">
+          <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold tracking-tight">
+            <Logo />
+            <span className="hidden sm:inline">Trip Finder</span>
+          </Link>
+          <Nav admin={isAdminEmail(user?.email)} />
+          <form
+            className="flex shrink-0 items-center gap-2"
+            action={async () => {
+              "use server";
+              await signOut({ redirectTo: "/login" });
+            }}
+          >
+            {firstName && <span className="hidden text-sm text-muted md:inline">Hi, {firstName}</span>}
+            <SubmitButton className="btn btn-ghost px-2">Sign out</SubmitButton>
+          </form>
+        </div>
       </header>
-      <main className="pt-6">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 pt-6 pb-16">{children}</main>
     </div>
   );
 }

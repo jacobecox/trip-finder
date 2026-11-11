@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { getDb, property } from "@/lib/db";
 import { countPending, runGeocodeBatch } from "@/lib/geo/geocode-job";
 
@@ -13,7 +13,7 @@ export async function GET() {
 
 /** Runs one time-boxed batch. Body {retryFailed:true} re-queues failed properties first. */
 export async function POST(req: Request) {
-  if (!(await requireUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Only the admin can do this" }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   if (body?.retryFailed) {
     const db = getDb();

@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Spinner } from "@/components/ui";
 
-/** Runs SerpApi fare searches in time-boxed batches, like Locate & tag. */
+/** Admin only: runs SerpApi fare searches in time-boxed batches. */
 export default function FarePricer({ remaining, usage, cap }: { remaining: number; usage: number; cap: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -37,18 +38,24 @@ export default function FarePricer({ remaining, usage, cap }: { remaining: numbe
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 text-sm">
-      {left > 0 ? (
-        <button disabled={busy} onClick={run} className="rounded border px-3 py-1 disabled:opacity-50">
-          {busy ? `Pricing flights… ${left} left` : `Price flights (${left} searches)`}
-        </button>
-      ) : (
-        <span className="text-black/60 dark:text-white/60">Flights priced ✓</span>
-      )}
-      <span className="text-xs text-black/50 dark:text-white/50">
-        SerpApi: {used} of {cap} searches used this month
-      </span>
-      {note && <span className="text-xs text-amber-700">{note}</span>}
+    <div className="card flex max-w-md flex-col gap-1.5 px-3 py-2.5 text-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        {left > 0 ? (
+          <button disabled={busy} onClick={run} className="btn btn-primary" title={`Uses ${left} of the ${cap - used} searches left this month`}>
+            {busy && <Spinner />}
+            {busy ? `Pricing flights… ${left} left` : `✈ Price flights (${left} searches)`}
+          </button>
+        ) : (
+          <span className="text-emerald-300">✓ All flights priced</span>
+        )}
+        <span className="text-xs text-muted">
+          {used} of {cap} searches used this month
+        </span>
+      </div>
+      <div className="h-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+        <div className="h-full rounded-full bg-accent/70" style={{ width: `${Math.min(100, (used / Math.max(cap, 1)) * 100)}%` }} />
+      </div>
+      {note && <span className="text-xs text-amber-300">{note}</span>}
     </div>
   );
 }

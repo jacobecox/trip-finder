@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { DEFAULT_TAG_WEIGHTS, getDb, property, settings, TAGS } from "@/lib/db";
 import { geocodeText } from "@/lib/geo/nominatim";
 import { getSettings } from "@/lib/queries";
@@ -39,7 +39,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  if (!(await requireUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Only the admin can do this" }, { status: 403 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const b = parsed.data;

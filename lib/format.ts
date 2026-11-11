@@ -35,3 +35,27 @@ export function fmtUsd(v: number | null | undefined) {
 export function fmtMiles(v: number | null | undefined) {
   return v == null ? "—" : `${Math.round(v).toLocaleString("en-US")} mi`;
 }
+
+/** "Dec 5" (with the year only when it isn't the current one) */
+export function fmtShortDate(iso: string, now = new Date()) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(y !== now.getFullYear() ? { year: "numeric" } : {}),
+    timeZone: "UTC",
+  });
+}
+
+export function nightsBetween(arrival: string, checkout: string) {
+  return daysUntil(checkout, new Date(`${arrival}T12:00:00`));
+}
+
+/** "in 24 days", "tomorrow", "today", "started" */
+export function fmtCountdown(days: number) {
+  if (days < 0) return "already started";
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days < 60) return `in ${days} days`;
+  return `in ${Math.round(days / 30.4)} months`;
+}

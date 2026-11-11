@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Spinner } from "@/components/ui";
 import { TAGS, tagDisplay, type TagWeights } from "@/lib/tags/constants";
 
 interface S {
@@ -32,8 +33,8 @@ interface S {
 
 type Form = { [K in Exclude<keyof S, "tagWeights">]: string } & { tagWeights: Record<string, string> };
 
-const input = "w-full rounded border border-black/20 bg-transparent px-2 py-1.5 dark:border-white/25";
-const hint = "text-xs text-black/50 dark:text-white/50";
+const input = "field mt-1 w-full";
+const hint = "text-xs text-muted";
 const str = (s: S): Form => ({
   ...(Object.fromEntries(Object.entries(s).map(([k, v]) => [k, typeof v === "object" ? v : String(v)])) as Form),
   tagWeights: Object.fromEntries(TAGS.map((t) => [t, String(s.tagWeights[t] ?? 0)])),
@@ -114,8 +115,8 @@ export default function SettingsForm({ initial }: { initial: S }) {
 
   return (
     <form onSubmit={save} className="space-y-6">
-      <fieldset className="space-y-3">
-        <legend className="mb-1 font-medium">Home / origin</legend>
+      <fieldset className="card space-y-3 p-4">
+        <legend className="float-left mb-1 w-full font-semibold">Home / origin</legend>
         <label className="block text-sm">
           Origin
           <input className={input} value={f.originLabel} onChange={set("originLabel")} required />
@@ -128,8 +129,8 @@ export default function SettingsForm({ initial }: { initial: S }) {
         {field("maxDriveHours", "Max drive hours")}
       </fieldset>
 
-      <fieldset className="space-y-3">
-        <legend className="mb-1 font-medium">Trip cost (USD)</legend>
+      <fieldset className="card space-y-3 p-4">
+        <legend className="float-left mb-1 w-full font-semibold">Trip cost (USD)</legend>
         <div className="grid grid-cols-2 gap-3">
           {field("tickets", "Plane tickets", <span className={hint}>Seats; the first two are adults</span>)}
           {field("lapInfants", "Lap infants", <span className={hint}>No seat; may still cost on intl flights</span>)}
@@ -146,8 +147,8 @@ export default function SettingsForm({ initial }: { initial: S }) {
         </p>
       </fieldset>
 
-      <fieldset className="space-y-3">
-        <legend className="mb-1 font-medium">Flights</legend>
+      <fieldset className="card space-y-3 p-4">
+        <legend className="float-left mb-1 w-full font-semibold">Flights</legend>
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm">
             Home airport
@@ -172,8 +173,8 @@ export default function SettingsForm({ initial }: { initial: S }) {
         </p>
       </fieldset>
 
-      <fieldset className="space-y-3">
-        <legend className="mb-1 font-medium">Also fly from</legend>
+      <fieldset className="card space-y-3 p-4">
+        <legend className="float-left mb-1 w-full font-semibold">Also fly from</legend>
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm">
             Second airport
@@ -190,8 +191,8 @@ export default function SettingsForm({ initial }: { initial: S }) {
         </p>
       </fieldset>
 
-      <fieldset className="space-y-3">
-        <legend className="mb-1 font-medium">Scoring</legend>
+      <fieldset className="card space-y-3 p-4">
+        <legend className="float-left mb-1 w-full font-semibold">Scoring</legend>
         <div className="grid grid-cols-2 gap-3">
           {field("costWeight", "Cost weight")}
           {field("activityWeight", "Activity weight")}
@@ -213,10 +214,13 @@ export default function SettingsForm({ initial }: { initial: S }) {
         <p className={hint}>How much each activity matters to you. 0 ignores it.</p>
       </fieldset>
 
-      <button disabled={busy} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
-        {busy ? "Saving…" : "Save"}
-      </button>
-      {msg && <p className="text-sm">{msg}</p>}
+      <div className="sticky bottom-4 flex items-center gap-3">
+        <button disabled={busy} className="btn btn-primary px-5 py-2 shadow-lg shadow-black/50">
+          {busy && <Spinner />}
+          {busy ? "Saving…" : "Save settings"}
+        </button>
+        {msg && <p className={`text-sm ${msg.startsWith("Saved") ? "text-emerald-300" : "text-amber-300"}`}>{msg}</p>}
+      </div>
     </form>
   );
 }

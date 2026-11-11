@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { getDb, property, propertyAirport, propertyTag, TAGS } from "@/lib/db";
 import { airportByIata } from "@/lib/flights/airports";
 import { computeDrivable } from "@/lib/geo/geocode-job";
@@ -22,7 +22,7 @@ const Body = z.object({
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await requireUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Only the admin can do this" }, { status: 403 });
   const id = Number((await params).id);
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!Number.isInteger(id) || !parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });

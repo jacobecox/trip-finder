@@ -10,7 +10,8 @@ import type { ParsedListing } from "@/lib/parser/types";
 import { QuotaError } from "@/lib/geo/util";
 import { useTestDb } from "./db";
 
-vi.mock("@/lib/auth", () => ({ requireUser: async () => ({ email: "me@example.com" }) }));
+const me = { email: "me@example.com" };
+vi.mock("@/lib/auth", () => ({ requireUser: async () => me, requireAdmin: async () => me }));
 vi.mock("@/lib/storage", () => ({ getBlobStore: () => ({ put: async () => "mem://pdf" }) }));
 vi.mock("@/lib/geo/nominatim", () => ({
   geocodeProperty: vi.fn(),

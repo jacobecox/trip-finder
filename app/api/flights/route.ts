@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { fareStatus, runFareBatch } from "@/lib/flights/job";
 
 export const maxDuration = 60;
@@ -12,7 +12,7 @@ export async function GET() {
 
 /** Runs one time-boxed batch of fare searches; the client polls until remaining is 0 or the cap is hit. */
 export async function POST() {
-  if (!(await requireUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Only the admin can do this" }, { status: 403 });
   try {
     return NextResponse.json(await runFareBatch());
   } catch (e) {

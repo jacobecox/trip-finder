@@ -1,13 +1,23 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 
-export function isAllowedEmail(email?: string | null): boolean {
-  if (!email) return false;
-  const allowed = (process.env.ALLOWED_EMAILS ?? "")
+const emailList = (s: string | undefined) =>
+  (s ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  return allowed.includes(email.toLowerCase());
+
+/** ALLOWED_EMAILS: everyone who can sign in and browse (family). */
+export function isAllowedEmail(email?: string | null): boolean {
+  return !!email && emailList(process.env.ALLOWED_EMAILS).includes(email.toLowerCase());
+}
+
+/**
+ * ADMIN_EMAILS: who can upload PDFs, edit properties and settings, and spend flight searches.
+ * Must also be allowed to sign in. Unset means nobody is admin (fails closed).
+ */
+export function isAdminEmail(email?: string | null): boolean {
+  return isAllowedEmail(email) && emailList(process.env.ADMIN_EMAILS).includes(email!.toLowerCase());
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -27,9 +37,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
-/** Defense in depth for API routes (the proxy already gates them). */
+/** Defense in depth for API routes (the proxy already gates sign-in). */
 export async function requireUser() {
   const session = await auth();
   if (!session?.user || !isAllowedEmail(session.user.email)) return null;
   return session.user;
+}
+
+/** For routes that change data or spend API quota. */
+export async function requireAdmin() {
+  const session = await auth();
+  if (!session?.user || !isAdminEmail(session.user.email)) return null;
+  return session.user;
+}
+
+/** Whether the signed-in user is an admin (for showing admin-only UI). */
+export async function isAdmin() {
+  return isAdminEmail((await auth())?.user?.email);
 }

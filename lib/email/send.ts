@@ -8,7 +8,12 @@ export async function sendEmail(msg: { subject: string; html: string; text: stri
   if (!url || !secret) throw new Error("EMAIL_WORKER_URL / EMAIL_SECRET not configured");
   const res = await fetch(new URL("/send", url), {
     method: "POST",
-    headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      "Content-Type": "application/json",
+      // Cloudflare's bot check (error 1010) rejects some default client User-Agents
+      "User-Agent": "trip-finder/0.1 (personal project)",
+    },
     body: JSON.stringify(msg),
     signal: AbortSignal.timeout(20_000),
   });

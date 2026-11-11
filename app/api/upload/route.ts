@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { countPending } from "@/lib/geo/geocode-job";
 import { importPdf } from "@/lib/ingest";
 
@@ -7,7 +7,7 @@ export const maxDuration = 60;
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export async function POST(req: Request) {
-  if (!(await requireUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Only the admin can do this" }, { status: 403 });
 
   const form = await req.formData();
   const file = form.get("file");

@@ -47,7 +47,7 @@ function popupHtml(p: Pin<MapRow>) {
     </div>`;
 }
 
-/** MapLibre GL + OpenFreeMap vector tiles. Loaded client-only (see listings-table.tsx). */
+/** MapLibre GL + OpenFreeMap vector tiles. Loaded client-only (see trips.tsx). */
 export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: { label: string; lat: number; lng: number } }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -100,7 +100,7 @@ export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: 
           "circle-opacity": 0.95,
         },
       });
-      new maplibregl.Marker({ color: "#111", scale: 0.7 })
+      new maplibregl.Marker({ color: "#facc15", scale: 0.7 })
         .setLngLat([origin.lng, origin.lat])
         .setPopup(new maplibregl.Popup({ offset: 20 }).setText(`Home: ${origin.label}`))
         .addTo(m);
@@ -153,8 +153,8 @@ export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: 
 
   return (
     <div className="space-y-2">
-      <div ref={el} className="h-[70vh] min-h-[420px] w-full overflow-hidden rounded border border-black/10 dark:border-white/15" />
-      <div className="flex flex-wrap items-center gap-3 text-xs text-black/60 dark:text-white/60">
+      <div ref={el} className="h-[70vh] min-h-[420px] w-full overflow-hidden rounded-xl border border-line" />
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
         <span>Best score at each resort:</span>
         <span className="inline-flex items-center gap-1">
           worst

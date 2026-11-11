@@ -96,23 +96,23 @@ export function DateRangePicker({
           setOpen(!open);
         }}
       >
-        <span className={`truncate ${text ? "" : "text-black/40 dark:text-white/40"}`}>{text || placeholder}</span>
+        <span className={`truncate ${text ? "" : "text-muted/70"}`}>{text || placeholder}</span>
         <span aria-hidden>📅</span>
       </button>
       {open && (
         <div
           role="dialog"
           aria-label="Choose dates"
-          className="absolute left-0 z-[1000] mt-1 w-64 rounded border border-black/15 bg-white p-2 text-xs shadow-lg dark:border-white/20 dark:bg-neutral-900"
+          className="absolute left-0 z-[1000] mt-1 w-64 rounded-xl border border-line bg-surface p-2 text-xs shadow-xl shadow-black/50"
         >
           <div className="mb-1 flex items-center justify-between">
-            <button type="button" className="rounded px-2 py-1 hover:bg-black/5 dark:hover:bg-white/10" onClick={() => shift(-1)} aria-label="Previous month">
+            <button type="button" className="rounded px-2 py-1 hover:bg-white/10" onClick={() => shift(-1)} aria-label="Previous month">
               ‹
             </button>
             <button
               type="button"
               title="Select the whole month"
-              className={`rounded px-2 py-1 font-medium hover:bg-black/5 dark:hover:bg-white/10 ${wholeMonth ? "text-blue-600 dark:text-blue-400" : ""}`}
+              className={`rounded px-2 py-1 font-medium hover:bg-white/10 ${wholeMonth ? "text-accent" : ""}`}
               onClick={() => {
                 onChange({ from: `${month}-01`, to: lastDay });
                 setPending(null);
@@ -121,13 +121,13 @@ export function DateRangePicker({
             >
               {label(`${month}-01`, { month: "long", year: "numeric" })}
             </button>
-            <button type="button" className="rounded px-2 py-1 hover:bg-black/5 dark:hover:bg-white/10" onClick={() => shift(1)} aria-label="Next month">
+            <button type="button" className="rounded px-2 py-1 hover:bg-white/10" onClick={() => shift(1)} aria-label="Next month">
               ›
             </button>
           </div>
           <div className="grid grid-cols-7 gap-0.5 text-center">
             {WEEKDAYS.map((w) => (
-              <div key={w} className="py-1 text-black/50 dark:text-white/50">
+              <div key={w} className="py-1 text-muted">
                 {w}
               </div>
             ))}
@@ -143,10 +143,10 @@ export function DateRangePicker({
                   onClick={() => pick(d)}
                   className={`rounded py-1 tabular-nums ${
                     selected
-                      ? "bg-blue-600 text-white"
+                      ? "bg-accent font-semibold text-accent-ink"
                       : n
                         ? "bg-emerald-500/20 font-medium hover:bg-emerald-500/35"
-                        : "text-black/35 hover:bg-black/5 dark:text-white/35 dark:hover:bg-white/10"
+                        : "text-white/35 hover:bg-white/10"
                   }`}
                 >
                   {Number(d.slice(8))}
@@ -154,10 +154,10 @@ export function DateRangePicker({
               );
             })}
           </div>
-          <div className="mt-2 text-black/60 dark:text-white/60">
+          <div className="mt-2 text-muted">
             {pending ? `From ${short(pending)} — now pick the end day` : "Pick a start and end day, or click the month name"}
           </div>
-          <div className="mt-1 flex items-center justify-between text-black/60 dark:text-white/60">
+          <div className="mt-1 flex items-center justify-between text-muted">
             <span>
               <span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500/40 align-middle" />
               has stays
@@ -165,7 +165,7 @@ export function DateRangePicker({
             {(value.from || value.to) && (
               <button
                 type="button"
-                className="underline"
+                className="link"
                 onClick={() => {
                   onChange({ from: "", to: "" });
                   setPending(null);

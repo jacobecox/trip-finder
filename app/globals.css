@@ -1,26 +1,84 @@
 @import "tailwindcss";
 
+/* The app is dark-only: <html class="dark"> turns on every dark: variant regardless of the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0c0e12;
+  --surface: #151820;
+  --surface-2: #1d212b;
+  --line: #2a2f3a;
+  --ink: #ecebe8;
+  --muted: #9ba1ab;
+  --accent: #facc15;
+  --accent-hover: #fde047;
+  --accent-ink: #1c1600;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 35%, transparent);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-accent text-accent-ink shadow-sm shadow-black/30 hover:bg-accent-hover active:translate-y-px;
+  }
+  .btn-secondary {
+    @apply border border-line bg-surface-2 text-ink hover:border-accent/60 hover:text-accent;
+  }
+  .btn-ghost {
+    @apply text-muted hover:bg-white/5 hover:text-ink;
+  }
+  .field {
+    @apply rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink transition-colors placeholder:text-muted/70 hover:border-white/25 focus:border-accent/70 focus:outline-none;
+  }
+  .card {
+    @apply rounded-xl border border-line bg-surface;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] leading-4 text-ink/85;
+  }
+  .link {
+    @apply text-accent underline-offset-2 hover:underline;
+  }
+  .label {
+    @apply text-xs font-medium text-muted;
+  }
 }
