@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { isAdmin } from "@/lib/auth";
-import { getSettings } from "@/lib/queries";
+import { currentEmail, isAdminEmail } from "@/lib/auth";
+import { getEffectiveSettings } from "@/lib/prefs";
 import { rampColor } from "@/lib/map";
 import { TAGS, tagDisplay } from "@/lib/tags/constants";
 
 export const dynamic = "force-dynamic";
 
 export default async function GuidePage() {
-  const [s, admin] = await Promise.all([getSettings(), isAdmin()]);
+  const email = await currentEmail();
+  const admin = isAdminEmail(email);
+  const { settings: s } = await getEffectiveSettings(email);
   const w = Math.max(0, s.costWeight) + Math.max(0, s.activityWeight) || 1;
   const costPct = Math.round((100 * Math.max(0, s.costWeight)) / w);
   const liked = TAGS.filter((t) => (s.tagWeights[t] ?? 0) > 0).sort((a, b) => s.tagWeights[b] - s.tagWeights[a]);
@@ -93,6 +95,10 @@ export default async function GuidePage() {
           )}
           <li>
             <b>More filters</b>: number of plane tickets, unit size, country and state.
+          </li>
+          <li>
+            <b>Settings</b>: save your own number of plane tickets, what matters most (cost vs. activities, which
+            activities), and gas and flight estimates. They only change what <i>you</i> see.
           </li>
           <li>
             <b>Sort</b>: best score, cheapest, soonest, closest, and more.

@@ -43,6 +43,13 @@
       "when": 1794407400170,
       "tag": "0005_lively_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794440803218,
+      "tag": "0006_outgoing_changeling",
+      "breakpoints": true
     }
   ]
 }

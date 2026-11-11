@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { isAdmin } from "@/lib/auth";
-import { getCurrentListings, getSettings } from "@/lib/queries";
+import { currentEmail, isAdminEmail } from "@/lib/auth";
+import { getEffectiveSettings } from "@/lib/prefs";
+import { getCurrentListings } from "@/lib/queries";
 import { fmtDate } from "@/lib/format";
 import { fareStatus } from "@/lib/flights/job";
 import FarePricer from "./fare-pricer";
@@ -10,7 +11,13 @@ import Welcome from "./welcome";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [{ upload, rows }, s, fares, admin] = await Promise.all([getCurrentListings(), getSettings(), fareStatus(), isAdmin()]);
+  const email = await currentEmail();
+  const admin = isAdminEmail(email);
+  const [{ upload, rows }, { settings: s, personalized }, fares] = await Promise.all([
+    getCurrentListings(),
+    getEffectiveSettings(email),
+    fareStatus(),
+  ]);
   if (!upload)
     return (
       <div className="card mx-auto max-w-lg space-y-3 p-8 text-center">
@@ -49,6 +56,14 @@ export default async function Home() {
         )}
       </div>
       <Welcome />
+      {personalized && (
+        <p className="text-xs text-muted">
+          Using your own settings ({s.tickets} plane ticket{s.tickets === 1 ? "" : "s"}…).{" "}
+          <Link className="link" href="/settings">
+            Change
+          </Link>
+        </p>
+      )}
       <Trips
         rows={rows}
         admin={admin}

@@ -212,3 +212,25 @@ export const settings = pgTable("settings", {
   altOriginParkingUsdPerDay: real("alt_origin_parking_usd_per_day").notNull().default(10),
   fareCacheHours: integer("fare_cache_hours").notNull().default(24),
 });
+
+/**
+ * Per-person overrides of the scoring/cost settings (tickets, weights, gas…), so a family member
+ * can look at trips for 1 ticket without changing anyone else's view. Only keys they changed are
+ * stored; everything else falls back to `settings`. The admin edits `settings` directly.
+ */
+export const userPrefs = pgTable("user_prefs", {
+  email: text("email").primaryKey(), // lowercased Google account email
+  prefs: jsonb("prefs").$type<Partial<PersonalPrefs>>().notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export interface PersonalPrefs {
+  tickets: number;
+  costWeight: number;
+  activityWeight: number;
+  tagWeights: Partial<TagWeights>;
+  mpg: number;
+  gasPriceUsd: number;
+  flightBaseUsd: number;
+  flightPerMileUsd: number;
+}

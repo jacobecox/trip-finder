@@ -55,3 +55,7 @@ export async function requireAdmin() {
 export async function isAdmin() {
   return isAdminEmail((await auth())?.user?.email);
 }
+
+export async function currentEmail() {
+  return (await auth())?.user?.email ?? null;
+}

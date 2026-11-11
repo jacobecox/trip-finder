@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Spinner } from "@/components/ui";
 import { TAGS, tagDisplay, type TagWeights } from "@/lib/tags/constants";
@@ -31,7 +32,9 @@ interface S {
   altOriginParkingUsdPerDay: number;
 }
 
-type Form = { [K in Exclude<keyof S, "tagWeights">]: string } & { tagWeights: Record<string, string> };
+type Form = { [K in Exclude<keyof S, "tagWeights">]: string } & {
+  tagWeights: Record<string, string>;
+};
 
 const input = "field mt-1 w-full";
 const hint = "text-xs text-muted";
@@ -40,8 +43,18 @@ const str = (s: S): Form => ({
   tagWeights: Object.fromEntries(TAGS.map((t) => [t, String(s.tagWeights[t] ?? 0)])),
 });
 
-export default function SettingsForm({ initial }: { initial: S }) {
+export default function SettingsForm({
+  initial,
+  admin,
+  personalized,
+}: {
+  initial: S;
+  admin: boolean;
+  personalized: boolean;
+}) {
+  const router = useRouter();
   const [f, setF] = useState<Form>(str(initial));
+  const [custom, setCustom] = useState(personalized);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
@@ -56,7 +69,8 @@ export default function SettingsForm({ initial }: { initial: S }) {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const n = (k: Exclude<keyof Form, "tagWeights" | "originLabel" | "originAirport" | "altOriginAirport">) => Number(f[k]);
+    const n = (k: Exclude<keyof Form, "tagWeights" | "originLabel" | "originAirport" | "altOriginAirport">) =>
+      Number(f[k]);
     const body = {
       originLabel: f.originLabel,
       originLat: n("originLat"),
@@ -83,9 +97,41 @@ export default function SettingsForm({ initial }: { initial: S }) {
       altOriginDriveMiles: n("altOriginDriveMiles"),
       altOriginParkingUsdPerDay: n("altOriginParkingUsdPerDay"),
     };
-    if (Object.values(body).some((v) => typeof v === "number" && Number.isNaN(v)) ||
-        Object.values(body.tagWeights).some(Number.isNaN))
+    if (
+      Object.values(body).some((v) => typeof v === "number" && Number.isNaN(v)) ||
+      Object.values(body.tagWeights).some(Number.isNaN)
+    )
       return setMsg("Please enter numbers only.");
+
+    if (!admin) {
+      // family members save only their own view (tickets, weights, cost estimates)
+      setBusy(true);
+      setMsg("");
+      const { tickets, costWeight, activityWeight, tagWeights, mpg, gasPriceUsd, flightBaseUsd, flightPerMileUsd } =
+        body;
+      const res = await fetch("/api/prefs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickets,
+          costWeight,
+          activityWeight,
+          tagWeights,
+          mpg,
+          gasPriceUsd,
+          flightBaseUsd,
+          flightPerMileUsd,
+        }),
+      });
+      const j = await res.json();
+      setBusy(false);
+      if (!res.ok) return setMsg(j.error ?? "Save failed");
+      setF(str(j));
+      setCustom(true);
+      setMsg("Saved. Your trips now use these.");
+      router.refresh();
+      return;
+    }
 
     setBusy(true);
     setMsg("");
@@ -100,7 +146,11 @@ export default function SettingsForm({ initial }: { initial: S }) {
       return setMsg(j.error ?? "Save failed");
     }
     if (j.requeued > 0 || j.airportsRequeued) {
-      setMsg(j.requeued > 0 ? `Saved. Recomputing drive times for ${j.requeued} properties…` : "Saved. Rebuilding airport lists…");
+      setMsg(
+        j.requeued > 0
+          ? `Saved. Recomputing drive times for ${j.requeued} properties…`
+          : "Saved. Rebuilding airport lists…",
+      );
       let more = true;
       while (more) {
         const r = await fetch("/api/geocode", { method: "POST" });
@@ -113,27 +163,46 @@ export default function SettingsForm({ initial }: { initial: S }) {
     setF(str(await (await fetch("/api/settings")).json()));
   }
 
+  async function reset() {
+    setBusy(true);
+    setMsg("");
+    const res = await fetch("/api/prefs", { method: "DELETE" });
+    setBusy(false);
+    if (!res.ok) return setMsg("Reset failed");
+    setF(str(await res.json()));
+    setCustom(false);
+    setMsg("Saved. Back to the shared defaults.");
+    router.refresh();
+  }
+
   return (
     <form onSubmit={save} className="space-y-6">
-      <fieldset className="card space-y-3 p-4">
-        <legend className="float-left mb-1 w-full font-semibold">Home / origin</legend>
-        <label className="block text-sm">
-          Origin
-          <input className={input} value={f.originLabel} onChange={set("originLabel")} required />
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          {field("originLat", "Latitude")}
-          {field("originLng", "Longitude")}
-        </div>
-        <p className={hint}>Change the origin name and leave the coordinates alone to look them up automatically.</p>
-        {field("maxDriveHours", "Max drive hours")}
-      </fieldset>
+      {admin && (
+        <fieldset className="card space-y-3 p-4">
+          <legend className="float-left mb-1 w-full font-semibold">Home / origin (shared)</legend>
+          <label className="block text-sm">
+            Origin
+            <input className={input} value={f.originLabel} onChange={set("originLabel")} required />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {field("originLat", "Latitude")}
+            {field("originLng", "Longitude")}
+          </div>
+          <p className={hint}>Change the origin name and leave the coordinates alone to look them up automatically.</p>
+          {field("maxDriveHours", "Max drive hours")}
+        </fieldset>
+      )}
 
       <fieldset className="card space-y-3 p-4">
         <legend className="float-left mb-1 w-full font-semibold">Trip cost (USD)</legend>
         <div className="grid grid-cols-2 gap-3">
-          {field("tickets", "Plane tickets", <span className={hint}>Seats; the first two are adults</span>)}
-          {field("lapInfants", "Lap infants", <span className={hint}>No seat; may still cost on intl flights</span>)}
+          {field(
+            "tickets",
+            "Plane tickets",
+            <span className={hint}>Seats to buy (a baby on a lap doesn&apos;t need one)</span>,
+          )}
+          {admin &&
+            field("lapInfants", "Lap infants", <span className={hint}>No seat; may still cost on intl flights</span>)}
           {field("mpg", "Car MPG")}
           {field("gasPriceUsd", "Gas price ($/gal)")}
         </div>
@@ -147,49 +216,65 @@ export default function SettingsForm({ initial }: { initial: S }) {
         </p>
       </fieldset>
 
-      <fieldset className="card space-y-3 p-4">
-        <legend className="float-left mb-1 w-full font-semibold">Flights</legend>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block text-sm">
-            Home airport
-            <input className={input} value={f.originAirport} onChange={set("originAirport")} maxLength={3} required />
-          </label>
-          {field(
-            "extraDriveUsdPerHour",
-            "Travel time ($/hour)",
-            <span className={hint}>
-              What an extra hour costs you: driving from a farther airport, or waiting on a layover
-            </span>,
-          )}
-          {field("airportMaxDriveHours", "Airports within (hours)")}
-          {field("hubMaxDriveHours", "…or nearest big airport within (hours)")}
-          {field("maxAirports", "Max airports per search", <span className={hint}>Google Flights allows 7</span>)}
-          {field("fareCacheHours", "Re-price after (hours)")}
-          {field("serpapiMonthlyCap", "Monthly search cap", <span className={hint}>SerpApi free plan: 250</span>)}
-        </div>
-        <p className={hint}>
-          Each fare search covers every candidate airport for a property. The cheapest fare + extra drive (both ways,
-          plus gas) wins, so a farther airport has to save real money.
-        </p>
-      </fieldset>
+      {admin && (
+        <>
+          <fieldset className="card space-y-3 p-4">
+            <legend className="float-left mb-1 w-full font-semibold">Flights (shared)</legend>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-sm">
+                Home airport
+                <input
+                  className={input}
+                  value={f.originAirport}
+                  onChange={set("originAirport")}
+                  maxLength={3}
+                  required
+                />
+              </label>
+              {field(
+                "extraDriveUsdPerHour",
+                "Travel time ($/hour)",
+                <span className={hint}>
+                  What an extra hour costs you: driving from a farther airport, or waiting on a layover
+                </span>,
+              )}
+              {field("airportMaxDriveHours", "Airports within (hours)")}
+              {field("hubMaxDriveHours", "…or nearest big airport within (hours)")}
+              {field("maxAirports", "Max airports per search", <span className={hint}>Google Flights allows 7</span>)}
+              {field("fareCacheHours", "Re-price after (hours)")}
+              {field("serpapiMonthlyCap", "Monthly search cap", <span className={hint}>SerpApi free plan: 250</span>)}
+            </div>
+            <p className={hint}>
+              Each fare search covers every candidate airport for a property. The cheapest fare + extra drive (both
+              ways, plus gas) wins, so a farther airport has to save real money.
+            </p>
+          </fieldset>
 
-      <fieldset className="card space-y-3 p-4">
-        <legend className="float-left mb-1 w-full font-semibold">Also fly from</legend>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block text-sm">
-            Second airport
-            <input className={input} value={f.altOriginAirport} onChange={set("altOriginAirport")} maxLength={3} />
-            <span className={hint}>Searched together with the home airport (no extra searches). Leave empty to turn off.</span>
-          </label>
-          {field("altOriginParkingUsdPerDay", "Parking ($/day)", <span className={hint}>Counted for nights + 1 days</span>)}
-          {field("altOriginDriveHours", "Drive from home (hours, one way)")}
-          {field("altOriginDriveMiles", "Drive from home (miles, one way)")}
-        </div>
-        <p className={hint}>
-          Flying from the second airport adds the drive there and back (time at the $/hour above, plus gas) and
-          parking. The listings page can show either airport or the better of the two.
-        </p>
-      </fieldset>
+          <fieldset className="card space-y-3 p-4">
+            <legend className="float-left mb-1 w-full font-semibold">Also fly from (shared)</legend>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-sm">
+                Second airport
+                <input className={input} value={f.altOriginAirport} onChange={set("altOriginAirport")} maxLength={3} />
+                <span className={hint}>
+                  Searched together with the home airport (no extra searches). Leave empty to turn off.
+                </span>
+              </label>
+              {field(
+                "altOriginParkingUsdPerDay",
+                "Parking ($/day)",
+                <span className={hint}>Counted for nights + 1 days</span>,
+              )}
+              {field("altOriginDriveHours", "Drive from home (hours, one way)")}
+              {field("altOriginDriveMiles", "Drive from home (miles, one way)")}
+            </div>
+            <p className={hint}>
+              Flying from the second airport adds the drive there and back (time at the $/hour above, plus gas) and
+              parking. The listings page can show either airport or the better of the two.
+            </p>
+          </fieldset>
+        </>
+      )}
 
       <fieldset className="card space-y-3 p-4">
         <legend className="float-left mb-1 w-full font-semibold">Scoring</legend>
@@ -206,7 +291,12 @@ export default function SettingsForm({ initial }: { initial: S }) {
                 className={input}
                 inputMode="decimal"
                 value={f.tagWeights[t]}
-                onChange={(e) => setF({ ...f, tagWeights: { ...f.tagWeights, [t]: e.target.value } })}
+                onChange={(e) =>
+                  setF({
+                    ...f,
+                    tagWeights: { ...f.tagWeights, [t]: e.target.value },
+                  })
+                }
               />
             </label>
           ))}
@@ -219,6 +309,17 @@ export default function SettingsForm({ initial }: { initial: S }) {
           {busy && <Spinner />}
           {busy ? "Saving…" : "Save settings"}
         </button>
+        {!admin && custom && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={reset}
+            className="btn btn-secondary py-2"
+            title="Use the same settings as everyone else"
+          >
+            Reset to defaults
+          </button>
+        )}
         {msg && <p className={`text-sm ${msg.startsWith("Saved") ? "text-emerald-300" : "text-amber-300"}`}>{msg}</p>}
       </div>
     </form>

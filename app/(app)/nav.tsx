@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 
 const MAIN = [
   { href: "/", label: "Trips" },
+  { href: "/settings", label: "Settings" },
   { href: "/guide", label: "How it works" },
 ];
 const ADMIN = [
   { href: "/upload", label: "Upload" },
-  { href: "/properties", label: "Properties" },
-  { href: "/settings", label: "Settings" },
+  { href: "/properties", label: "Resorts" },
 ];
 
 export default function Nav({ admin }: { admin: boolean }) {
