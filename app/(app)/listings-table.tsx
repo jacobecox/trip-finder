@@ -8,6 +8,7 @@ import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtMinutes, fmtUsd } from "@/li
 import { scoreListings, type ScoreSettings } from "@/lib/scoring";
 import { tagDisplay } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
+import { DatePicker, stayDayCounts } from "./date-picker";
 import type { FareInfo } from "@/lib/flights/fares";
 import { fareFrom, originCost } from "@/lib/flights/pick";
 
@@ -96,6 +97,7 @@ export default function ListingsTable({
   );
 
   const [onDate, setOnDate] = useState("");
+  const dayCounts = useMemo(() => stayDayCounts(raw), [raw]);
   const [drivableOnly, setDrivableOnly] = useState(false);
   const [unit, setUnit] = useState("");
   const [country, setCountry] = useState("");
@@ -193,16 +195,10 @@ export default function ListingsTable({
             </select>
           </label>
         )}
-        <label className="text-xs">
+        <div className="text-xs" title="Shows stays that include this day (check-in through check-out)">
           Trips on date
-          <input
-            type="date"
-            className={`${input} w-full`}
-            value={onDate}
-            title="Shows stays that include this day (check-in through check-out)"
-            onChange={(e) => setOnDate(e.target.value)}
-          />
-        </label>
+          <DatePicker value={onDate} onChange={setOnDate} counts={dayCounts} className={`${input} w-full`} />
+        </div>
         <label className="text-xs">
           Activity
           <select className={`${input} w-full`} value={tag} onChange={(e) => setTag(e.target.value as Tag | "")}>

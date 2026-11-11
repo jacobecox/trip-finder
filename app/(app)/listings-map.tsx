@@ -71,6 +71,22 @@ export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: 
         if (l.type === "symbol" && m.getLayoutProperty(l.id, "text-field") != null)
           m.setLayoutProperty(l.id, "text-field", ENGLISH);
       }
+      // US states / provinces (admin level 4), visible at every zoom; the style only shows them up close
+      m.addLayer(
+        {
+          id: "states",
+          type: "line",
+          source: "openmaptiles",
+          "source-layer": "boundary",
+          filter: ["all", ["==", ["get", "admin_level"], 4], ["!=", ["get", "maritime"], 1]],
+          paint: {
+            "line-color": "hsl(248,1%,45%)",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.6, 6, 1.2, 10, 2],
+            "line-opacity": 0.8,
+          },
+        },
+        "boundary_2",
+      );
       m.addSource("pins", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({
         id: "pins",
