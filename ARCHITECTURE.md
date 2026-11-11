@@ -89,7 +89,8 @@ names only. Real PDFs are gitignored.
   by rank among those shown (raw scores cluster at 50-90 and one outlier flattens a min-max scale).
   Labels are switched to English names (`name_en`) where OSM has them. CARTO raster tiles were tried
   but now need an API key; the default OSM raster tiles show local-language names.
-- "Trips on date" filter: a stay matches when check-in <= date <= check-out.
+- "Dates" filter (range; month name picks the whole month): a stay matches when at least one of
+  its nights is inside the range, so a stay crossing into May shows for May (checking out May 1 doesn't).
 - Passengers: `tickets` seats (first two adults, rest children) + lap infants. The listings-page
   ticket override scales the fare per seat (approximate, labelled "≈").
 

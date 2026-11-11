@@ -8,7 +8,7 @@ import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtMinutes, fmtUsd } from "@/li
 import { scoreListings, type ScoreSettings } from "@/lib/scoring";
 import { tagDisplay } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
-import { DatePicker, stayDayCounts } from "./date-picker";
+import { DateRangePicker, overlaps, stayDayCounts, type DateRange } from "./date-picker";
 import type { FareInfo } from "@/lib/flights/fares";
 import { fareFrom, originCost } from "@/lib/flights/pick";
 
@@ -96,7 +96,7 @@ export default function ListingsTable({
     [data, origin, scoreSettings, ticketCount],
   );
 
-  const [onDate, setOnDate] = useState("");
+  const [dates, setDates] = useState<DateRange>({ from: "", to: "" });
   const dayCounts = useMemo(() => stayDayCounts(raw), [raw]);
   const [drivableOnly, setDrivableOnly] = useState(false);
   const [unit, setUnit] = useState("");
@@ -122,7 +122,7 @@ export default function ListingsTable({
     return rows
       .filter(
         (r) =>
-          (!onDate || (r.arrivalDate <= onDate && onDate <= r.checkoutDate)) &&
+          overlaps(r, dates) &&
           (!drivableOnly || r.isDrivable) &&
           (!unit || r.unitType === unit) &&
           (!country || r.country === country) &&
@@ -137,7 +137,7 @@ export default function ListingsTable({
         if (y == null) return -1;
         return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
       });
-  }, [rows, onDate, drivableOnly, unit, country, state, tag, maxPrice, sort]);
+  }, [rows, dates, drivableOnly, unit, country, state, tag, maxPrice, sort]);
 
   const th = (key: SortKey, label: string, cls = "") => {
     const active = sort.key === key;
@@ -195,9 +195,9 @@ export default function ListingsTable({
             </select>
           </label>
         )}
-        <div className="text-xs" title="Shows stays that include this day (check-in through check-out)">
-          Trips on date
-          <DatePicker value={onDate} onChange={setOnDate} counts={dayCounts} className={`${input} w-full`} />
+        <div className="text-xs" title="Shows stays with at least one night inside these dates">
+          Dates
+          <DateRangePicker value={dates} onChange={setDates} counts={dayCounts} className={`${input} w-full`} />
         </div>
         <label className="text-xs">
           Activity
