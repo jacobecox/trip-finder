@@ -42,8 +42,11 @@ export default async function GuidePage() {
             yourself.
           </li>
           <li>
-            <b>Activity chips</b>: what&apos;s nearby (beach, theme parks, zoo…). Open <b>Details</b> on a card for the
-            full breakdown.
+            <b>Activity chips</b>: what&apos;s nearby (beach, theme parks, zoo…).
+          </li>
+          <li>
+            <b>Tap a card</b> for that trip&apos;s own page: flight details, what&apos;s nearby by name, other weeks at
+            the same resort, and a <b>Share</b> button to text the link to family.
           </li>
         </ul>
       </Section>

@@ -1,9 +1,15 @@
 import { signIn } from "@/lib/auth";
 import { Logo } from "@/components/logo";
+import { safeReturn } from "@/lib/format";
 import { SubmitButton } from "@/components/ui";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; callbackUrl?: string }>;
+}) {
+  const { error, callbackUrl } = await searchParams;
+  const redirectTo = safeReturn(callbackUrl);
   return (
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,rgba(250,204,21,0.12),transparent_60%)] p-6">
       <div className="card w-full max-w-sm space-y-5 p-7 shadow-2xl shadow-black/40">
@@ -26,7 +32,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <form
           action={async () => {
             "use server";
-            await signIn("google", { redirectTo: "/" });
+            await signIn("google", { redirectTo });
           }}
         >
           <SubmitButton className="btn btn-primary w-full py-2.5">Sign in with Google</SubmitButton>

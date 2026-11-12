@@ -36,7 +36,7 @@ function popupHtml(p: Pin<MapRow>) {
           .map(
             (l) => `<tr>
               <td style="padding:1px 6px 1px 0;font-weight:600;text-align:right">${l.score == null ? "—" : Math.round(l.score)}</td>
-              <td style="padding:1px 6px 1px 0;white-space:nowrap">${escapeHtml(fmtDate(l.arrivalDate))}</td>
+              <td style="padding:1px 6px 1px 0;white-space:nowrap"><a href="/trips/${l.id}" style="color:inherit;text-decoration:underline">${escapeHtml(fmtDate(l.arrivalDate))}</a></td>
               <td style="padding:1px 6px 1px 0;text-align:right">${escapeHtml(fmtUsd(l.totalUsd))}</td>
               <td style="padding:1px 0;color:#666;white-space:nowrap">${travel(l)}</td>
             </tr>`,

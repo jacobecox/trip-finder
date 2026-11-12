@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { currentEmail, isAdminEmail } from "@/lib/auth";
-import { getEffectiveSettings } from "@/lib/prefs";
+import { getEffectiveSettings, scoreSettingsOf } from "@/lib/prefs";
 import { getCurrentListings } from "@/lib/queries";
 import { fmtDate } from "@/lib/format";
 import { fareStatus } from "@/lib/flights/job";
@@ -69,16 +69,7 @@ export default async function Home() {
         admin={admin}
         origin={{ label: s.originLabel, lat: s.originLat, lng: s.originLng }}
         airports={{ home: s.originAirport, alt: s.altOriginAirport }}
-        scoreSettings={{
-          costWeight: s.costWeight,
-          activityWeight: s.activityWeight,
-          tagWeights: s.tagWeights,
-          tickets: s.tickets,
-          mpg: s.mpg,
-          gasPriceUsd: s.gasPriceUsd,
-          flightBaseUsd: s.flightBaseUsd,
-          flightPerMileUsd: s.flightPerMileUsd,
-        }}
+        scoreSettings={scoreSettingsOf(s)}
       />
     </div>
   );

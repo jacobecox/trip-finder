@@ -87,7 +87,9 @@ export default function TripTable({
                 {daysUntil(r.arrivalDate)}d
               </td>
               <td className="px-2 py-2">
-                <span className="font-medium">{r.property}</span>
+                <Link href={`/trips/${r.id}`} className="font-medium hover:text-accent hover:underline">
+                  {r.property}
+                </Link>
                 <TagChips tags={r.tags} untagged={r.untagged} />
               </td>
               <td className="px-2 py-2 text-muted">{placeLine(r)}</td>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb, TAGS, userPrefs, type PersonalPrefs } from "@/lib/db";
 import { isAdminEmail } from "@/lib/auth";
 import { getSettings } from "@/lib/queries";
+import type { ScoreSettings } from "@/lib/scoring";
 
 /** Settings each person can change for their own view. Everything else is shared and admin-only. */
 export const PERSONAL_KEYS = [
@@ -76,4 +77,18 @@ export async function savePrefs(email: string, prefs: Partial<PersonalPrefs>) {
     .insert(userPrefs)
     .values({ email: key, prefs })
     .onConflictDoUpdate({ target: userPrefs.email, set: { prefs, updatedAt: sql`now()` } });
+}
+
+/** The settings the score depends on (sent to the browser, which re-scores as filters change). */
+export function scoreSettingsOf(s: Settings): ScoreSettings {
+  return {
+    costWeight: s.costWeight,
+    activityWeight: s.activityWeight,
+    tagWeights: s.tagWeights,
+    tickets: s.tickets,
+    mpg: s.mpg,
+    gasPriceUsd: s.gasPriceUsd,
+    flightBaseUsd: s.flightBaseUsd,
+    flightPerMileUsd: s.flightPerMileUsd,
+  };
 }

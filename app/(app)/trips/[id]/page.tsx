@@ -1,0 +1,244 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { cache } from "react";
+import { currentEmail } from "@/lib/auth";
+import { daysUntil, fmtCountdown, fmtHours, fmtMiles, fmtShortDate, fmtUsd, nightsBetween } from "@/lib/format";
+import { TAG_EMOJI, TAG_LABELS, type Tag } from "@/lib/tags/constants";
+import { getTrip } from "@/lib/trip";
+import { Cost } from "../../trip-cards";
+import { flightFacts, placeLine, ScoreBadge, TravelLine } from "../../travel";
+import { ShareButton } from "./share-button";
+
+export const dynamic = "force-dynamic";
+
+type Props = { params: Promise<{ id: string }> };
+
+// generateMetadata and the page share one load per request
+const load = cache((id: number, email: string | null) => getTrip(id, email));
+
+const tripId = async (params: Props["params"]) => {
+  const n = Number((await params).id);
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const id = await tripId(params);
+  const data = id ? await load(id, await currentEmail()) : null;
+  const t = data?.trip ?? data?.stale;
+  return { title: t ? `${t.property} · ${fmtShortDate(t.arrivalDate)} | Trip Finder` : "Trip Finder" };
+}
+
+const capitalize = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+
+/** "Sat, Dec 5" */
+const fmtDay = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+
+export default async function TripPage({ params }: Props) {
+  const id = await tripId(params);
+  if (!id) notFound();
+  const data = await load(id, await currentEmail());
+  if (!data) notFound();
+  const { trip: r, stale, others, activityNotes, settings: s, origin } = data;
+
+  if (!r)
+    return (
+      <div className="mx-auto max-w-2xl space-y-5">
+        <BackLink />
+        <div className="card space-y-2 p-6">
+          <h1 className="text-lg font-semibold">This week isn&apos;t on the current list</h1>
+          <p className="text-sm text-muted">
+            {stale!.property}, {fmtDay(stale!.arrivalDate)} – {fmtDay(stale!.checkoutDate)} was on an older list and has
+            been replaced by this month&apos;s.
+          </p>
+        </div>
+        <OtherWeeks others={others} title={`${stale!.property} on this month's list`} empty="None this month." />
+      </div>
+    );
+
+  const nights = nightsBetween(r.arrivalDate, r.checkoutDate);
+  const quote = r.travelMode === "fly" && r.fareSource === "quote" && r.fare && "iata" in r.fare ? r.fare : null;
+  const mapsQuery = r.lat != null ? `${r.lat},${r.lng}` : `${r.property}, ${placeLine(r)}`;
+
+  return (
+    <article className="mx-auto max-w-2xl space-y-4">
+      <BackLink />
+
+      <header className="card space-y-4 p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <span title={`Score ${r.score == null ? "not available yet" : Math.round(r.score)} out of 100`}>
+            <ScoreBadge score={r.score} color={r.color} size="lg" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-semibold leading-snug tracking-tight">{r.property}</h1>
+            <p className="text-sm text-muted">{placeLine(r)}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          <span>
+            📅 {fmtDay(r.arrivalDate)} – {fmtDay(r.checkoutDate)}
+          </span>
+          <span className="text-muted">
+            {nights} nights · <span suppressHydrationWarning>{fmtCountdown(daysUntil(r.arrivalDate))}</span>
+          </span>
+          <span className="text-muted">🛏 {r.unitType}</span>
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-line rounded-lg bg-surface-2 text-center text-sm tabular-nums">
+          <Cost label="Stay" value={fmtUsd(r.priceUsd)} />
+          <Cost
+            label={r.travelMode === "drive" ? "Gas" : "Flights"}
+            value={fmtUsd(r.travelUsd)}
+            hint={r.fareSource === "estimate" ? "estimate" : undefined}
+          />
+          <Cost label="Total" value={fmtUsd(r.totalUsd)} strong />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <ShareButton
+            title={r.property}
+            text={`${r.property}, ${fmtDay(r.arrivalDate)} – ${fmtDay(r.checkoutDate)}: about ${fmtUsd(r.totalUsd)} all in`}
+          />
+          {quote?.searchUrl && (
+            <a className="btn btn-primary" href={quote.searchUrl} target="_blank" rel="noreferrer">
+              ✈ Google Flights ↗
+            </a>
+          )}
+        </div>
+      </header>
+
+      <Section title={r.travelMode === "drive" ? "🚗 Getting there" : "✈ Getting there"}>
+        {(r.travelMode !== "fly" || quote) && (
+          <p>
+            <TravelLine r={r} home={s.originAirport} />
+          </p>
+        )}
+        {r.travelMode === "drive" && (
+          <p className="text-muted">
+            {fmtHours(r.driveHours)} each way from {origin.label}. Gas for the round trip is about {fmtUsd(r.travelUsd)} at{" "}
+            {s.mpg} mpg and ${s.gasPriceUsd.toFixed(2)}/gal.
+          </p>
+        )}
+        {quote && (
+          <ul className="list-disc space-y-0.5 pl-5 text-muted">
+            {flightFacts(quote, s.tickets).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        )}
+        {r.travelMode === "fly" && !quote && (
+          <p className="text-muted">
+            ✈ Flight cost is estimated from the distance ({s.tickets} seat{s.tickets === 1 ? "" : "s"}). Real fares are
+            looked up after each new list arrives.
+          </p>
+        )}
+        <p className="text-muted">
+          {fmtMiles(r.distanceMiles)} from {origin.label} as the crow flies ·{" "}
+          <a className="link" href={`https://maps.apple.com/?q=${encodeURIComponent(mapsQuery)}`} target="_blank" rel="noreferrer">
+            Apple Maps ↗
+          </a>{" "}
+          ·{" "}
+          <a
+            className="link"
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Google Maps ↗
+          </a>
+        </p>
+      </Section>
+
+      <Section title="🎯 Things to do nearby">
+        {r.tags.length === 0 ? (
+          <p className="text-muted">
+            {r.untagged ? "Nearby activities haven't been checked yet." : "Nothing on our activity list was found nearby."}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {r.tags.map((t: Tag) => (
+              <li key={t}>
+                <span className="font-medium">
+                  {TAG_EMOJI[t]} {TAG_LABELS[t]}
+                </span>
+                {activityNotes[t] && <div className="text-xs text-muted">{capitalize(activityNotes[t])}</div>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="⭐ Why this score">
+        {r.costScore == null ? (
+          <p className="text-muted">No cost yet, because the resort hasn&apos;t been found on the map.</p>
+        ) : (
+          <p>
+            Cost <b>{Math.round(r.costScore)}</b>/100 (cheaper is higher) · Activities <b>{Math.round(r.activityScore)}</b>/100.{" "}
+            <span className="text-muted">
+              <Link className="link" href="/guide">
+                How scores work
+              </Link>
+            </span>
+          </p>
+        )}
+        <p className="text-xs text-muted">Exchange inventory #{r.inventoryNumber}</p>
+      </Section>
+
+      <OtherWeeks others={others} title="Other weeks at this resort" />
+    </article>
+  );
+}
+
+function BackLink() {
+  return (
+    <Link href="/" className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-accent">
+      ‹ All trips
+    </Link>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="card space-y-2 p-4 text-sm leading-relaxed sm:p-5">
+      <h2 className="text-base font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function OtherWeeks({
+  others,
+  title,
+  empty,
+}: {
+  others: { id: number; arrivalDate: string; checkoutDate: string; unitType: string; totalUsd: number | null; score: number | null; color: string }[];
+  title: string;
+  empty?: string;
+}) {
+  if (!others.length && !empty) return null;
+  return (
+    <Section title={title}>
+      {others.length === 0 ? (
+        <p className="text-muted">{empty}</p>
+      ) : (
+        <ul className="-mx-2">
+          {others.map((o) => (
+            <li key={o.id}>
+              <Link
+                href={`/trips/${o.id}`}
+                className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/5"
+              >
+                <ScoreBadge score={o.score} color={o.color} size="sm" />
+                <span className="flex-1">
+                  {fmtDay(o.arrivalDate)} – {fmtDay(o.checkoutDate)}
+                  <span className="text-muted"> · {o.unitType}</span>
+                </span>
+                <span className="font-medium tabular-nums text-accent">{fmtUsd(o.totalUsd)}</span>
+                <span className="text-muted">›</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}

@@ -1,36 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { daysUntil, fmtCountdown, fmtMiles, fmtShortDate, fmtUsd, nightsBetween } from "@/lib/format";
-import { tagDisplay, type Tag } from "@/lib/tags/constants";
+import { daysUntil, fmtCountdown, fmtShortDate, fmtUsd, nightsBetween } from "@/lib/format";
+import type { Tag } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
-import { placeLine, ScoreBadge, TravelLine, TravelNote, type Trip } from "./travel";
+import { placeLine, ScoreBadge, TravelLine, type Trip } from "./travel";
 
 const PAGE = 48;
 
 export default function TripCards({
   trips,
   color,
-  tickets,
   home,
-  flyFrom,
-  originLabel,
   activity,
 }: {
   activity: Tag | "";
   trips: Trip[];
   color: (score: number | null) => string;
-  tickets: number;
   home: string;
-  flyFrom: string;
-  originLabel: string;
 }) {
   const [limit, setLimit] = useState(PAGE);
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {trips.slice(0, limit).map((r) => (
-          <TripCard key={r.id} r={r} color={color(r.score)} tickets={tickets} home={home} flyFrom={flyFrom} originLabel={originLabel} activity={activity} />
+          <TripCard key={r.id} r={r} color={color(r.score)} home={home} activity={activity} />
         ))}
       </div>
       {trips.length > limit && (
@@ -47,31 +42,28 @@ export default function TripCards({
 function TripCard({
   r,
   color,
-  tickets,
   home,
-  flyFrom,
-  originLabel,
   activity,
 }: {
   activity: Tag | "";
   r: Trip;
   color: string;
-  tickets: number;
   home: string;
-  flyFrom: string;
-  originLabel: string;
 }) {
   const nights = nightsBetween(r.arrivalDate, r.checkoutDate);
   const travelLabel = r.travelMode === "drive" ? "Gas" : "Flights";
   return (
-    <article className="card group flex min-w-0 flex-col gap-3 p-4 transition-colors hover:border-accent/40">
+    <article className="card group relative flex min-w-0 flex-col gap-3 p-4 transition-colors hover:border-accent/40 has-[a:focus-visible]:border-accent">
       <header className="flex items-start gap-3">
         <span title={`Score ${r.score == null ? "not available yet" : Math.round(r.score)} out of 100`}>
           <ScoreBadge score={r.score} color={color} size="lg" />
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-semibold leading-snug transition-colors group-hover:text-accent" title={r.property}>
-            {r.property}
+            {/* the link covers the whole card; the Google Flights link sits above it */}
+            <Link href={`/trips/${r.id}`} className="after:absolute after:inset-0 after:rounded-[inherit] focus:outline-none">
+              {r.property}
+            </Link>
           </h3>
           <p className="truncate text-sm text-muted" title={placeLine(r)}>
             {placeLine(r)}
@@ -105,43 +97,14 @@ function TripCard({
 
       <TagChips tags={r.tags} untagged={r.untagged} max={3} highlight={activity} />
 
-      <details className="mt-auto text-sm">
-        <summary className="w-fit list-none rounded-md text-xs font-medium text-muted transition-colors select-none hover:text-accent [&::-webkit-details-marker]:hidden">
-          <span className="inline-block transition-transform group-has-[details[open]]:rotate-90">›</span> Details
-        </summary>
-        <div className="mt-2 space-y-2 rounded-lg border border-line p-3 text-xs">
-          <p>
-            <span className="text-muted">Why this score: </span>
-            {r.costScore == null ? (
-              "cost unknown until the resort is located"
-            ) : (
-              <>
-                cost {Math.round(r.costScore)}/100 (cheaper is higher) · activities {Math.round(r.activityScore)}/100
-              </>
-            )}
-          </p>
-          {r.tags.length > 0 && (
-            <p>
-              <span className="text-muted">Nearby: </span>
-              {r.tags.map(tagDisplay).join(" · ")}
-            </p>
-          )}
-          {r.travelMode === "fly" && (
-            <div>
-              <span className="text-muted">Flight details:</span>
-              <TravelNote r={r} tickets={tickets} home={home} flyFrom={flyFrom} />
-            </div>
-          )}
-          <p className="text-muted">
-            {fmtMiles(r.distanceMiles)} from {originLabel} as the crow flies
-          </p>
-        </div>
-      </details>
+      <div className="mt-auto flex justify-end text-xs font-medium text-muted transition-colors group-hover:text-accent">
+        Full details ›
+      </div>
     </article>
   );
 }
 
-function Cost({ label, value, strong, hint }: { label: string; value: string; strong?: boolean; hint?: string }) {
+export function Cost({ label, value, strong, hint }: { label: string; value: string; strong?: boolean; hint?: string }) {
   return (
     <div className="px-2 py-1.5">
       <div className="text-[11px] text-muted">

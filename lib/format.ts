@@ -59,3 +59,15 @@ export function fmtCountdown(days: number) {
   if (days < 60) return `in ${days} days`;
   return `in ${Math.round(days / 30.4)} months`;
 }
+
+/** Where to land after signing in: the page that sent you there (e.g. a shared trip link), never another site. */
+export function safeReturn(callbackUrl: string | undefined) {
+  if (!callbackUrl) return "/";
+  try {
+    const u = new URL(callbackUrl, "http://x");
+    const path = u.pathname.replace(/^\/+/, "/"); // "//evil.com" would be read as another host
+    return path.startsWith("/login") ? "/" : path + u.search;
+  } catch {
+    return "/";
+  }
+}

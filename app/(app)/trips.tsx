@@ -301,15 +301,7 @@ export default function Trips({
           admin={admin}
         />
       ) : (
-        <TripCards
-          trips={shown}
-          color={color}
-          tickets={ticketCount}
-          home={airports.home}
-          flyFrom={f.flyFrom}
-          originLabel={origin.label}
-          activity={f.tag}
-        />
+        <TripCards trips={shown} color={color} home={airports.home} activity={f.tag} />
       )}
     </div>
   );

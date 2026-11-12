@@ -40,3 +40,18 @@ describe("allowlist and admin", () => {
     expect((await POST()).status).toBe(403);
   });
 });
+
+describe("safeReturn (where sign-in lands)", async () => {
+  const { safeReturn } = await import("@/lib/format");
+  it("returns to a shared trip link", () => {
+    expect(safeReturn("https://trips.example.com/trips/42")).toBe("/trips/42");
+    expect(safeReturn("/trips/42?x=1")).toBe("/trips/42?x=1");
+  });
+  it("never leaves the site or loops back to login", () => {
+    expect(safeReturn("https://evil.example/steal")).toBe("/steal");
+    expect(safeReturn("//evil.example/x")).toBe("/x");
+    expect(safeReturn("https://trips.example.com//evil.example")).toBe("/evil.example");
+    expect(safeReturn("/login?error=1")).toBe("/");
+    expect(safeReturn(undefined)).toBe("/");
+  });
+});

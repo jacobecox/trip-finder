@@ -80,7 +80,7 @@ export function TravelLine({ r, home }: { r: Trip; home: string }) {
         <span className={f.stops === 0 ? "text-emerald-300" : ""}>{stops}</span>
         {f.durationMin > 0 && <span className="whitespace-nowrap"> · {fmtMinutes(f.durationMin)}</span>}
         {f.searchUrl && (
-          <a className="link ml-2 whitespace-nowrap" href={f.searchUrl} target="_blank" rel="noreferrer">
+          <a className="link relative z-10 ml-2 whitespace-nowrap" href={f.searchUrl} target="_blank" rel="noreferrer">
             Google Flights ↗
           </a>
         )}
@@ -95,7 +95,32 @@ export function TravelLine({ r, home }: { r: Trip; home: string }) {
   );
 }
 
-/** Full flight breakdown (table cell and card details). */
+type Quote = Extract<FareInfo, { iata: string }>;
+
+/** Every detail of a priced flight, one line each (table tooltip, trip page). */
+export function flightFacts(f: Quote, tickets: number) {
+  const others = Object.values(f.byOrigin ?? {}).filter((o) => o.origin !== f.origin);
+  return [
+    `${f.airline}: $${Math.round(f.fareUsd)} round trip for ${f.seats} seats`,
+    f.stops > 0 &&
+      (f.layovers?.length
+        ? `Stops: ${f.layovers.map((l) => `${l.iata} ${fmtMinutes(l.minutes)}${l.overnight ? " overnight" : ""}`).join(", ")}`
+        : `${f.stops} stop${f.stops > 1 ? "s" : ""} each way`),
+    f.durationMin > 0 && `${fmtMinutes(f.durationMin)} outbound`,
+    f.layoverUsd > 0.5 && `Layover time counted as $${Math.round(f.layoverUsd)} (both ways)`,
+    f.extraDriveHours > 0.05 &&
+      `+${fmtHours(f.extraDriveHours)} drive vs ${f.nearestIata} each way, counted as $${Math.round(f.extraDriveUsd)}`,
+    f.nonstop && `Cheapest nonstop: ${f.nonstop.iata} ${f.nonstop.airline} $${Math.round(f.nonstop.fareUsd)}`,
+    f.originExtraUsd > 0.5 && `Flying from ${f.origin}: drive there and back + parking counted as $${Math.round(f.originExtraUsd)}`,
+    ...others.map(
+      (o) => `From ${o.origin}: $${Math.round(originCost(o))} all-in (${o.iata}, ${o.stops === 0 ? "nonstop" : `${o.stops} stop`})`,
+    ),
+    tickets !== f.seats && `Scaled to ${tickets} seats`,
+    `Priced ${fmtDate(f.fetchedAt.slice(0, 10))}`,
+  ].filter((x): x is string => !!x);
+}
+
+/** Full flight breakdown (table cell). */
 export function TravelNote({ r, tickets, home, flyFrom }: { r: Trip; tickets: number; home: string; flyFrom: string }) {
   if (!r.travelMode) return null;
   if (r.travelMode === "drive") return <div className={muted}>gas, round trip</div>;
@@ -110,23 +135,7 @@ export function TravelNote({ r, tickets, home, flyFrom }: { r: Trip; tickets: nu
         : f.layovers?.length
           ? f.layovers.map((l) => `${l.iata} ${fmtMinutes(l.minutes)}${l.overnight ? " overnight" : ""}`).join(", ")
           : `${f.stops} stop${f.stops > 1 ? "s" : ""}`;
-    const title = [
-      `${f.airline}: $${Math.round(f.fareUsd)} round trip for ${f.seats} seats`,
-      f.stops > 0 && `${f.stops} stop${f.stops > 1 ? "s" : ""} each way${f.layovers ? "" : " (layover times not recorded yet)"}`,
-      f.durationMin > 0 && `${fmtMinutes(f.durationMin)} outbound`,
-      f.layoverUsd > 0.5 && `layover time counted as $${Math.round(f.layoverUsd)} (both ways)`,
-      f.extraDriveHours > 0.05 &&
-        `+${fmtHours(f.extraDriveHours)} drive vs ${f.nearestIata} each way, counted as $${Math.round(f.extraDriveUsd)}`,
-      f.nonstop && `cheapest nonstop: ${f.nonstop.iata} ${f.nonstop.airline} $${Math.round(f.nonstop.fareUsd)}`,
-      f.originExtraUsd > 0.5 && `flying from ${f.origin}: drive there and back + parking counted as $${Math.round(f.originExtraUsd)}`,
-      ...others.map(
-        (o) => `from ${o.origin}: $${Math.round(originCost(o))} all-in (${o.iata}, ${o.stops === 0 ? "nonstop" : `${o.stops} stop`})`,
-      ),
-      scaled && `scaled to ${tickets} seats`,
-      `priced ${fmtDate(f.fetchedAt.slice(0, 10))}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const title = flightFacts(f, tickets).join("\n");
     return (
       <div className={`${muted} max-w-64 whitespace-normal`} title={title}>
         {f.searchUrl ? (
