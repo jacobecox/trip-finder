@@ -127,8 +127,16 @@ function statusLines(d: DigestInput) {
   return out;
 }
 
-// Email palette = the app's dark theme. Email clients need tables + inline styles; the gradient
-// backgrounds stop Gmail's dark-mode "invert" from flipping the dark design to light.
+// Email palette = the app's dark theme. Email clients need tables + inline styles and hex colors.
+//
+// Gmail's iPhone app in dark mode inverts colors even in an already-dark email: text goes dark,
+// borders go light. Gradient backgrounds aren't touched, so every background is a gradient and
+// borders are drawn as 1px of a "line" background around the box. Text is fixed with the
+// blend-mode trick, active only in Gmail (`u + .body` matches Gmail's wrapper): each text block
+// sits in a "screen" span holding a "difference" span, both on black. Gmail inverts those to
+// white; difference then flips the inverted text back to its light color and screen drops the
+// black around it. Yellow text can't survive that round trip, so Gmail gets white text (and an
+// outlined button) in place of the yellow bits.
 const C = {
   bg: "#0c0e12",
   surface: "#151820",
@@ -138,10 +146,50 @@ const C = {
   muted: "#9ba1ab",
   accent: "#facc15",
   accentInk: "#1c1600",
-  green: "#6ee7b7",
+  amber: "#fde68a",
 };
 const solid = (c: string) => `background-color:${c};background-image:linear-gradient(${c},${c})`;
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const GMAIL_CSS = `u + .body .gs{background:#000;mix-blend-mode:screen}
+u + .body .gd{background:#000;mix-blend-mode:difference}
+u + .body .ya{display:none!important}
+u + .body .gw{display:inline!important}
+u + .body .gwb{display:block!important}`;
+
+/** Light text that stays light in Gmail's dark mode. `inline` for text inside a line or chip. */
+const tx = (html: string, style: string, inline = false) =>
+  inline
+    ? `<span class="gs" style="display:inline-block"><span class="gd" style="display:inline-block;${style}">${html}</span></span>`
+    : `<div class="gs"><div class="gd" style="${style}">${html}</div></div>`;
+
+/** Yellow text, swapped for white (bold) in Gmail, where yellow would come out dark. */
+const accent = (html: string, style: string) =>
+  `<span class="ya" style="color:${C.accent};${style}">${html}</span><span class="gw" style="display:none;mso-hide:all">${tx(
+    html,
+    `color:#ffffff;${style}`,
+    true,
+  )}</span>`;
+
+/** A box with a 1px outline drawn as background (CSS borders get inverted by Gmail). */
+const box = (inner: string, opts: { bg: string; line?: string; radius: number; pad: string; extra?: string }) =>
+  `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${solid(opts.line ?? C.line)};border-radius:${opts.radius}px;${opts.extra ?? ""}"><tr><td style="padding:1px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${solid(opts.bg)};border-radius:${opts.radius - 1}px"><tr><td style="padding:${opts.pad}">${inner}</td></tr></table>
+  </td></tr></table>`;
+
+/** "hsl(96 75% 40%)" (the app's score colors) → hex, which Gmail keeps. */
+export function toHex(color: string) {
+  const m = color.match(/^hsl\(\s*([\d.]+)[\s,]+([\d.]+)%[\s,]+([\d.]+)%\s*\)$/);
+  if (!m) return color;
+  const [h, s, l] = [Number(m[1]), Number(m[2]) / 100, Number(m[3]) / 100];
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))))
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
 
 function cardHtml(p: Pick, i: number, d: DigestInput) {
   const e = escapeHtml;
@@ -149,12 +197,13 @@ function cardHtml(p: Pick, i: number, d: DigestInput) {
   const countdown = fmtCountdown(daysUntil(p.arrivalDate, d.now));
   const short = (iso: string) => fmtShortDate(iso, d.now);
   const travelLabel = p.travelMode === "drive" ? "Gas" : "Flights";
-  const cost = (label: string, value: string, opts: { strong?: boolean; hint?: string; last?: boolean } = {}) =>
-    `<td width="33%" align="center" style="padding:8px 4px;${opts.last ? "" : `border-right:1px solid ${C.line};`}">
-      <div style="font-size:11px;line-height:14px;color:${C.muted}">${label}${
-        opts.hint ? `<span style="color:#fde68a"> · ${opts.hint}</span>` : ""
-      }</div>
-      <div style="font-size:15px;line-height:20px;font-weight:${opts.strong ? 700 : 500};color:${C.ink}">${value}</div>
+  const cost = (label: string, value: string, opts: { strong?: boolean; hint?: string } = {}) =>
+    `<td width="33%" align="center" style="padding:8px 4px">
+      ${tx(
+        `${label}${opts.hint ? `<span style="color:${C.amber}"> · ${opts.hint}</span>` : ""}`,
+        `font-size:11px;line-height:14px;color:${C.muted}`,
+      )}
+      ${tx(value, `font-size:15px;line-height:20px;font-weight:${opts.strong ? 700 : 500};color:${C.ink}`)}
     </td>`;
   const shownTags = p.tags.slice(0, 4);
   const chips = [
@@ -163,53 +212,62 @@ function cardHtml(p: Pick, i: number, d: DigestInput) {
   ]
     .map(
       (t) =>
-        `<span style="display:inline-block;margin:0 4px 4px 0;padding:2px 8px;border-radius:999px;${solid(C.surface2)};font-size:11px;line-height:16px;color:${C.ink}">${t}</span>`,
+        `<span style="display:inline-block;margin:0 4px 4px 0;padding:2px 8px;border-radius:999px;${solid(C.surface2)}">${tx(
+          t,
+          `font-size:11px;line-height:16px;color:${C.ink}`,
+          true,
+        )}</span>`,
     )
     .join("");
+  const extra = [
+    p.altNote ? e(p.altNote) : null,
+    p.moreDates ? `+${p.moreDates} more date${p.moreDates > 1 ? "s" : ""} at this resort` : null,
+  ].filter(Boolean);
 
-  return `<tr><td style="padding:0 0 12px">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${solid(C.surface)};border:1px solid ${C.line};border-radius:14px">
-    <tr><td style="padding:16px">
+  const inner = `
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td width="52" valign="top" style="padding-right:12px">
-          <div style="width:48px;height:48px;line-height:48px;border-radius:12px;${solid(p.color)};color:#ffffff;font-size:18px;font-weight:700;text-align:center">${Math.round(p.score)}</div>
+        <td width="60" valign="top" style="width:60px;padding-right:12px">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td width="48" height="48" align="center" valign="middle" style="width:48px;height:48px;border-radius:12px;${solid(toHex(p.color))}">
+              ${tx(String(Math.round(p.score)), "color:#ffffff;font-size:18px;line-height:24px;font-weight:700", true)}
+            </td>
+          </tr></table>
         </td>
         <td valign="top">
-          <div style="font-size:11px;line-height:14px;color:${C.muted}">#${i + 1}</div>
-          <div style="font-size:16px;line-height:21px;font-weight:600;color:${C.ink}">${e(p.property)}</div>
-          <div style="font-size:13px;line-height:18px;color:${C.muted}">${e(p.location)}</div>
+          ${tx(`#${i + 1}`, `font-size:11px;line-height:14px;color:${C.muted}`)}
+          ${tx(e(p.property), `font-size:16px;line-height:21px;font-weight:600;color:${C.ink}`)}
+          ${tx(e(p.location), `font-size:13px;line-height:18px;color:${C.muted}`)}
         </td>
         <td valign="top" align="right" style="padding-left:8px;white-space:nowrap">
-          <div style="font-size:18px;line-height:22px;font-weight:700;color:${C.accent}">${e(fmtUsd(p.totalUsd))}</div>
-          <div style="font-size:11px;line-height:14px;color:${C.muted}">whole trip</div>
+          <div>${accent(e(fmtUsd(p.totalUsd)), "font-size:18px;line-height:22px;font-weight:700")}</div>
+          ${tx("whole trip", `font-size:11px;line-height:14px;color:${C.muted}`)}
         </td>
       </tr></table>
 
-      <div style="padding-top:12px;font-size:13px;line-height:19px;color:${C.ink}">
-        📅 ${e(short(p.arrivalDate))} – ${e(short(p.checkoutDate))}
-        <span style="color:${C.muted}">&nbsp;·&nbsp;${nights} nights · ${e(countdown)}&nbsp;·&nbsp;🛏 ${e(p.unitType)}</span>
-      </div>
+      <div style="padding-top:12px">${tx(
+        `📅 ${e(short(p.arrivalDate))} – ${e(short(p.checkoutDate))}<span style="color:${C.muted}">&nbsp;·&nbsp;${nights} nights · ${e(countdown)}&nbsp;·&nbsp;🛏 ${e(p.unitType)}</span>`,
+        `font-size:13px;line-height:19px;color:${C.ink}`,
+      )}</div>
 
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;${solid(C.surface2)};border-radius:10px"><tr>
         ${cost("Stay", e(fmtUsd(p.lodgingUsd)))}
         ${cost(travelLabel, e(fmtUsd(p.travelUsd)), { hint: p.estimate ? "estimate" : undefined })}
-        ${cost("Total", e(fmtUsd(p.totalUsd)), { strong: true, last: true })}
+        ${cost("Total", e(fmtUsd(p.totalUsd)), { strong: true })}
       </tr></table>
 
-      <div style="padding-top:12px;font-size:13px;line-height:19px;color:${p.estimate ? C.muted : C.ink}">
-        ${e(p.travel)}${
+      <div style="padding-top:12px">
+        ${tx(e(p.travel), `font-size:13px;line-height:19px;color:${p.estimate ? C.muted : C.ink}`)}
+        ${
           p.flightsUrl
-            ? ` &nbsp;<a href="${e(p.flightsUrl)}" style="color:${C.accent};text-decoration:none;white-space:nowrap">Google Flights ↗</a>`
+            ? `<a href="${e(p.flightsUrl)}" style="text-decoration:none;white-space:nowrap">${accent("Google Flights ↗", "font-size:13px;line-height:19px")}</a>`
             : ""
         }
-        ${p.altNote ? `<div style="font-size:12px;color:${C.muted}">${e(p.altNote)}</div>` : ""}
-        ${p.moreDates ? `<div style="font-size:12px;color:${C.muted}">+${p.moreDates} more date${p.moreDates > 1 ? "s" : ""} at this resort</div>` : ""}
+        ${extra.map((x) => tx(x!, `font-size:12px;line-height:17px;color:${C.muted}`)).join("")}
       </div>
 
-      ${chips ? `<div style="padding-top:10px;font-size:0;line-height:0">${chips}</div>` : ""}
-    </td></tr>
-  </table>
-</td></tr>`;
+      ${chips ? `<div style="padding-top:10px;font-size:0;line-height:0">${chips}</div>` : ""}`;
+
+  return `<tr><td style="padding:0 0 12px">${box(inner, { bg: C.surface, radius: 14, pad: "16px" })}</td></tr>`;
 }
 
 /** Pure: subject + HTML + text for the top-picks email. */
@@ -250,16 +308,22 @@ export function renderDigest(d: DigestInput) {
   ].join("\n");
 
   const button = (label: string) =>
-    `<a href="${e(d.appUrl)}" style="display:inline-block;${solid(C.accent)};color:${C.accentInk};font-weight:600;font-size:15px;line-height:20px;padding:12px 22px;border-radius:10px;text-decoration:none">${label}</a>`;
+    // Yellow button everywhere but Gmail; Gmail gets a yellow-outlined dark one with white text
+    `<a href="${e(d.appUrl)}" class="ya" style="display:inline-block;${solid(C.accent)};color:${C.accentInk};font-weight:600;font-size:15px;line-height:20px;padding:12px 22px;border-radius:10px;text-decoration:none">${label}</a>
+    <div class="gwb" style="display:none;mso-hide:all"><a href="${e(d.appUrl)}" style="text-decoration:none;display:inline-block">${box(
+      tx(label, "color:#ffffff;font-weight:600;font-size:15px;line-height:20px", true),
+      { bg: C.surface2, line: C.accent, radius: 10, pad: "11px 21px", extra: "width:auto" },
+    )}</a></div>`;
 
   const html = `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark only"><meta name="supported-color-schemes" content="dark only">
 <title>${e(subject)}</title>
-<style>:root{color-scheme:dark only;supported-color-schemes:dark only}a{color:${C.accent}}</style>
+<style>:root{color-scheme:dark only;supported-color-schemes:dark only}
+${GMAIL_CSS}</style>
 </head>
-<body style="margin:0;padding:0;${solid(C.bg)};color:${C.ink};font-family:${FONT};-webkit-text-size-adjust:100%">
+<body class="body" style="margin:0;padding:0;${solid(C.bg)};color:${C.ink};font-family:${FONT};-webkit-text-size-adjust:100%">
 <div style="display:none;max-height:0;overflow:hidden">${e(
     d.picks[0]
       ? `#1: ${d.picks[0].property}, ${fmtShortDate(d.picks[0].arrivalDate, d.now)} for ${fmtUsd(d.picks[0].totalUsd)}. ${summary}.`
@@ -271,32 +335,36 @@ export function renderDigest(d: DigestInput) {
 
   <tr><td style="padding:0 4px 20px">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td width="32" height="32" align="center" valign="middle" style="width:32px;height:32px;border-radius:8px;${solid(C.accent)}">
-        <img src="${e(d.appUrl)}/icons/logo-64.png" width="32" height="32" alt="✈" style="display:block;border:0;border-radius:8px;color:${C.accentInk};font-size:16px;line-height:32px">
+      <td width="32" height="32" style="width:32px;height:32px">
+        <img src="${e(d.appUrl)}/icons/logo-64.png" width="32" height="32" alt="" style="display:block;border:0;border-radius:8px">
       </td>
-      <td style="padding-left:10px;font-size:16px;font-weight:600;color:${C.ink}">Trip Finder</td>
+      <td style="padding-left:10px">${tx("Trip Finder", `font-size:16px;line-height:20px;font-weight:600;color:${C.ink}`)}</td>
     </tr></table>
   </td></tr>
 
   <tr><td style="padding:0 4px 16px">
-    <div style="font-size:24px;line-height:30px;font-weight:700;color:${C.ink}">${d.picks.length ? `This month&rsquo;s top ${d.picks.length}` : "New list imported"}</div>
-    <div style="padding-top:4px;font-size:14px;line-height:20px;color:${C.muted}">${e(summary)}. The best trip at each resort, ranked by cost and things to do nearby.</div>
-    ${status
-      .map((s) => `<div style="padding-top:8px;font-size:12px;line-height:17px;color:${C.muted}">ⓘ ${e(s)}</div>`)
-      .join("")}
+    ${tx(
+      d.picks.length ? `This month&rsquo;s top ${d.picks.length}` : "New list imported",
+      `font-size:24px;line-height:30px;font-weight:700;color:${C.ink}`,
+    )}
+    <div style="padding-top:4px">${tx(
+      `${e(summary)}. The best trip at each resort, ranked by cost and things to do nearby.`,
+      `font-size:14px;line-height:20px;color:${C.muted}`,
+    )}</div>
+    ${status.map((s) => `<div style="padding-top:8px">${tx(`ⓘ ${e(s)}`, `font-size:12px;line-height:17px;color:${C.muted}`)}</div>`).join("")}
   </td></tr>
 
   ${
     d.picks.length
       ? d.picks.map((p, i) => cardHtml(p, i, d)).join("")
-      : `<tr><td style="padding:16px;${solid(C.surface)};border:1px solid ${C.line};border-radius:14px;color:${C.muted};font-size:14px">No scored trips yet. They'll show up in the app once the resorts are located.</td></tr>`
+      : `<tr><td>${box(tx("No scored trips yet. They&rsquo;ll show up in the app once the resorts are located.", `font-size:14px;color:${C.muted}`), { bg: C.surface, radius: 14, pad: "16px" })}</td></tr>`
   }
 
   <tr><td align="center" style="padding:12px 0 8px">${button("See all trips →")}</td></tr>
-  <tr><td align="center" style="padding:16px 4px 0;font-size:11px;line-height:16px;color:${C.muted}">
-    Prices are from ${e(d.filename)}; flight prices change daily, so check before booking.<br>
-    You get this because you use Trip Finder.
-  </td></tr>
+  <tr><td align="center" style="padding:16px 4px 0">${tx(
+    `Prices are from ${e(d.filename)}; flight prices change daily, so check before booking.<br>You get this because you use Trip Finder.`,
+    `font-size:11px;line-height:16px;color:${C.muted};text-align:center`,
+  )}</td></tr>
 
 </table>
 </td></tr></table>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderDigest, type Pick } from "@/lib/digest";
+import { renderDigest, toHex, type Pick } from "@/lib/digest";
 
 const pick = (over: Partial<Pick> = {}): Pick => ({
   property: "Sand <Pebbles>",
@@ -35,6 +35,14 @@ const base = {
   now: new Date("2026-11-12T12:00:00"),
 };
 
+describe("toHex", () => {
+  it("turns the app's hsl score colors into hex for Gmail", () => {
+    expect(toHex("hsl(120 75% 40%)")).toBe("#19b319");
+    expect(toHex("hsl(0 75% 40%)")).toBe("#b31919");
+    expect(toHex("#9ca3af")).toBe("#9ca3af");
+  });
+});
+
 describe("renderDigest", () => {
   it("renders app-style cards: score, costs, escaped names, links, capped chips", () => {
     const { subject, html, text } = renderDigest({ ...base, picks: [pick(), pick({ property: "Snow Lake", travelMode: "drive", travel: "🚗 6h drive · 400 mi", flightsUrl: null, tags: [] })] });
@@ -43,6 +51,7 @@ describe("renderDigest", () => {
     expect(html).not.toContain("Sand <Pebbles>");
     expect(html).toContain(">91<");
     expect(html).toContain("#22c55e");
+    expect(html).not.toMatch(/border:1px|border-right/); // Gmail dark mode turns borders light
     expect(html).toContain("https://www.google.com/travel/flights?q=a&amp;b");
     expect(html).toContain("+1 more"); // 5 tags, 4 shown
     expect(html).toContain(">Gas<");
@@ -59,7 +68,7 @@ describe("renderDigest", () => {
       fareRemaining: 140,
       picks: [pick({ estimate: true, flightsUrl: null, travel: "✈ Flight cost is an estimate until real fares are looked up" })],
     });
-    expect(html).toContain("estimate</span>");
+    expect(html).toContain("· estimate</span>");
     expect(html).toContain("ⓘ Flights aren&#39;t priced yet");
     expect(html).not.toContain("Google Flights ↗");
     expect(text).toContain("(estimate)");
