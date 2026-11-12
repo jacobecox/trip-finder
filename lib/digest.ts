@@ -142,8 +142,6 @@ const C = {
 };
 const solid = (c: string) => `background-color:${c};background-image:linear-gradient(${c},${c})`;
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-const PLANE =
-  "M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z";
 
 function cardHtml(p: Pick, i: number, d: DigestInput) {
   const e = escapeHtml;
