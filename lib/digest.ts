@@ -270,6 +270,21 @@ function cardHtml(p: Pick, i: number, d: DigestInput) {
   return `<tr><td style="padding:0 0 12px">${box(inner, { bg: C.surface, radius: 14, pad: "16px" })}</td></tr>`;
 }
 
+/**
+ * The inbox preview line (next to the subject). Inboxes show the first text in the email, so this
+ * hidden line goes first, followed by invisible filler so the page text doesn't run on after it.
+ */
+export function previewText(d: { picks: Pick[]; listingCount: number; now?: Date }) {
+  const [top] = d.picks;
+  if (!top) return `${d.listingCount} new stays imported. Open Trip Finder to see them.`;
+  const city = top.location.split(", ").slice(0, 2).join(", ");
+  const total = top.totalUsd == null ? "" : ` · ${fmtUsd(top.totalUsd)} total`;
+  const n = d.picks.length - 1;
+  const more = n > 0 ? ` Plus ${n} more pick${n > 1 ? "s" : ""} from ${d.listingCount} stays.` : "";
+  return `Top pick: ${top.property} in ${city}, ${fmtShortDate(top.arrivalDate, d.now)}–${fmtShortDate(top.checkoutDate, d.now)}${total}.${more}`;
+}
+const PREVIEW_FILLER = "&#847;&zwnj;&nbsp;".repeat(90);
+
 /** Pure: subject + HTML + text for the top-picks email. */
 export function renderDigest(d: DigestInput) {
   const subject = d.picks.length
@@ -324,11 +339,9 @@ export function renderDigest(d: DigestInput) {
 ${GMAIL_CSS}</style>
 </head>
 <body class="body" style="margin:0;padding:0;${solid(C.bg)};color:${C.ink};font-family:${FONT};-webkit-text-size-adjust:100%">
-<div style="display:none;max-height:0;overflow:hidden">${e(
-    d.picks[0]
-      ? `#1: ${d.picks[0].property}, ${fmtShortDate(d.picks[0].arrivalDate, d.now)} for ${fmtUsd(d.picks[0].totalUsd)}. ${summary}.`
-      : summary,
-  )}</div>
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">${e(
+    previewText(d),
+  )}${PREVIEW_FILLER}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.bg}" style="${solid(C.bg)}">
 <tr><td align="center" style="padding:20px 12px 32px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;font-family:${FONT}">

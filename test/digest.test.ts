@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderDigest, toHex, type Pick } from "@/lib/digest";
+import { previewText, renderDigest, toHex, type Pick } from "@/lib/digest";
 
 const pick = (over: Partial<Pick> = {}): Pick => ({
   property: "Sand <Pebbles>",
@@ -78,5 +78,15 @@ describe("renderDigest", () => {
     const { subject, html } = renderDigest({ ...base, picks: [] });
     expect(subject).toBe("Trip Finder: Dec.pdf imported");
     expect(html).toContain("No scored trips yet");
+  });
+});
+
+describe("previewText", () => {
+  it("summarizes the top pick for the inbox preview, and comes first in the email", () => {
+    const d = { ...base, picks: [pick(), pick({ property: "Other" })] };
+    expect(previewText(d)).toBe("Top pick: Sand <Pebbles> in Solana Beach, CA, Dec 5–Dec 12 · $670 total. Plus 1 more pick from 205 stays.");
+    const html = renderDigest(d).html;
+    expect(html.indexOf("Top pick: Sand &lt;Pebbles&gt;")).toBeLessThan(html.indexOf("Trip Finder</div>"));
+    expect(previewText({ ...base, picks: [] })).toBe("205 new stays imported. Open Trip Finder to see them.");
   });
 });
