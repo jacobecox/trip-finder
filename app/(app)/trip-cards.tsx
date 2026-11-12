@@ -5,7 +5,7 @@ import { useState } from "react";
 import { daysUntil, fmtCountdown, fmtShortDate, fmtUsd, nightsBetween } from "@/lib/format";
 import type { Tag } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
-import { placeLine, ScoreBadge, TravelLine, type Trip } from "./travel";
+import { ChangeBadges, placeLine, ScoreBadge, TravelLine, type Trip } from "./travel";
 
 const PAGE = 48;
 
@@ -75,7 +75,8 @@ function TripCard({
         </div>
       </header>
 
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        <ChangeBadges r={r} />
         <span>
           📅 {fmtShortDate(r.arrivalDate)} – {fmtShortDate(r.checkoutDate)}
         </span>

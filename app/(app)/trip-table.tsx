@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtUsd } from "@/lib/format";
 import { TagChips } from "./tag-chips";
-import { placeLine, ScoreBadge, scoreTitle, TravelNote, type Trip } from "./travel";
+import { ChangeBadges, placeLine, ScoreBadge, scoreTitle, TravelNote, type Trip } from "./travel";
 
 export type SortKey =
   | "score"
@@ -90,6 +90,9 @@ export default function TripTable({
                 <Link href={`/trips/${r.id}`} className="font-medium hover:text-accent hover:underline">
                   {r.property}
                 </Link>
+                <span className="ml-1.5 inline-flex gap-1 align-middle">
+                  <ChangeBadges r={r} />
+                </span>
                 <TagChips tags={r.tags} untagged={r.untagged} />
               </td>
               <td className="px-2 py-2 text-muted">{placeLine(r)}</td>

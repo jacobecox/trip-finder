@@ -1,4 +1,5 @@
 import { getCurrentListings, getSettings } from "@/lib/queries";
+import { listDateOf } from "@/lib/format";
 import { scoreListings } from "@/lib/scoring";
 import { originCost } from "@/lib/flights/pick";
 import type { FareInfo } from "@/lib/flights/fares";
@@ -270,10 +271,7 @@ function cardHtml(p: Pick, i: number, d: DigestInput) {
 }
 
 /** "DEX Select Availability 11.10.2026 DexSelect.pdf" → "11/10/2026"; today's date if the name has none. */
-export function listDateOf(filename: string, now = new Date()) {
-  const m = filename.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
-  return m ? `${Number(m[1])}/${Number(m[2])}/${m[3]}` : now.toLocaleDateString("en-US", { timeZone: "America/Denver" });
-}
+export { listDateOf };
 
 /**
  * The inbox preview line (next to the subject). Inboxes show the first text in the email, so this

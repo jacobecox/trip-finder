@@ -71,3 +71,9 @@ export function safeReturn(callbackUrl: string | undefined) {
     return "/";
   }
 }
+
+/** "11/10/2026" from "DEX Select Availability 11.10.2026 ….pdf" (else today). */
+export function listDateOf(filename: string, now = new Date()) {
+  const m = filename.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
+  return m ? `${Number(m[1])}/${Number(m[2])}/${m[3]}` : now.toLocaleDateString("en-US", { timeZone: "America/Denver" });
+}

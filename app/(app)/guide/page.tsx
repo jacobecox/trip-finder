@@ -95,6 +95,10 @@ export default async function GuidePage() {
           <li>
             <b>🚗 Drivable only</b>: skip flying entirely.
           </li>
+          <li>
+            <b>✨ New</b> and <b>↓ Price drops</b>: what changed since the previous list. Cards show a{" "}
+            <span className="text-sky-300">New</span> tag or how much cheaper the stay got.
+          </li>
           {s.altOriginAirport && (
             <li>
               <b>Fly from</b>: {s.altOriginAirport} is often cheaper, {s.originAirport} is closer. The {s.altOriginAirport}{" "}

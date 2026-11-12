@@ -7,7 +7,7 @@ import { daysUntil, fmtCountdown, fmtHours, fmtMiles, fmtShortDate, fmtUsd, nigh
 import { TAG_EMOJI, TAG_LABELS, type Tag } from "@/lib/tags/constants";
 import { getTrip } from "@/lib/trip";
 import { Cost } from "../../trip-cards";
-import { flightFacts, placeLine, ScoreBadge, TravelLine } from "../../travel";
+import { ChangeBadges, flightFacts, placeLine, ScoreBadge, TravelLine } from "../../travel";
 import { BackLink } from "./back-link";
 import { ShareButton } from "./share-button";
 
@@ -61,6 +61,9 @@ export default async function TripPage({ params }: Props) {
   const nights = nightsBetween(r.arrivalDate, r.checkoutDate);
   const quote = r.travelMode === "fly" && r.fareSource === "quote" && r.fare && "iata" in r.fare ? r.fare : null;
   // Search by name (near the located spot) so the maps app opens the resort's own place page, with reviews
+  // Fares are quoted for the whole party; per seat is that total split evenly (no extra searches)
+  // (airfare only; the Flights figure also counts layover time and getting to the airport)
+  const perSeat = quote && s.tickets > 1 ? quote.fareUsd / quote.seats : null;
   const mapsQuery = `${r.property}, ${[r.city, r.state].filter(Boolean).join(", ")}`;
   const near = r.lat != null ? `&sll=${r.lat},${r.lng}` : "";
 
@@ -78,7 +81,8 @@ export default async function TripPage({ params }: Props) {
             <p className="text-sm text-muted">{placeLine(r)}</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <ChangeBadges r={r} />
           <span>
             📅 {fmtDay(r.arrivalDate)} – {fmtDay(r.checkoutDate)}
           </span>
@@ -96,6 +100,20 @@ export default async function TripPage({ params }: Props) {
           />
           <Cost label="Total" value={fmtUsd(r.totalUsd)} strong />
         </div>
+        {(r.priceDropUsd > 0 || perSeat) && (
+          <p className="text-xs text-muted">
+            {r.priceDropUsd > 0 && (
+              <span className="text-emerald-300">
+                Stay is {fmtUsd(r.priceDropUsd)} cheaper than on the previous list (was {fmtUsd(r.priceUsd + r.priceDropUsd)}).{" "}
+              </span>
+            )}
+            {perSeat && (
+              <>
+                Airfare is about {fmtUsd(perSeat)} per seat ({s.tickets} seats{s.lapInfants > 0 ? " + lap infant" : ""}).
+              </>
+            )}
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <ShareButton
             title={r.property}

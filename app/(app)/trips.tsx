@@ -52,7 +52,9 @@ export default function Trips({
   scoreSettings,
   admin,
   query,
+  previousList,
 }: {
+  previousList: string | null; // date of the list "New" is measured against
   query: Record<string, string | string[] | undefined>;
   rows: Row[];
   origin: { label: string; lat: number; lng: number };
@@ -69,6 +71,8 @@ export default function Trips({
     country: "",
     state: "",
     drivableOnly: false,
+    newOnly: false,
+    dropsOnly: false,
   };
   const defaults = { filters: DEFAULTS, sort: PRESETS[0].sort };
   const [initial] = useState(() => fromQuery(query, defaults));
@@ -133,6 +137,9 @@ export default function Trips({
     return m;
   }, [rows]);
 
+  const newCount = useMemo(() => rows.filter((r) => r.isNew).length, [rows]);
+  const dropCount = useMemo(() => rows.filter((r) => r.priceDropUsd > 0).length, [rows]);
+
   const shown = useMemo(() => {
     const val = (r: Trip) => (sort.key === "location" ? `${r.country}${r.state}${r.city}` : r[sort.key]);
     return rows
@@ -140,6 +147,8 @@ export default function Trips({
         (r) =>
           overlaps(r, f.dates) &&
           (!f.drivableOnly || r.isDrivable) &&
+          (!f.newOnly || r.isNew) &&
+          (!f.dropsOnly || r.priceDropUsd > 0) &&
           (!f.unit || r.unitType === f.unit) &&
           (!f.country || r.country === f.country) &&
           (!f.state || r.state === f.state) &&
@@ -245,6 +254,22 @@ export default function Trips({
             <Select label="Unit size" value={f.unit} onChange={(unit) => set({ unit })} options={units} />
             <Select label="Country" value={f.country} onChange={(country) => set({ country, state: "" })} options={countries} />
             <Select label="State" value={f.state} onChange={(state) => set({ state })} options={states} />
+          </div>
+        )}
+
+        {previousList && (newCount > 0 || dropCount > 0) && (
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="What changed">
+            <span className="text-xs text-muted">Since the {previousList} list:</span>
+            {newCount > 0 && (
+              <ChipButton active={f.newOnly} onClick={() => set({ newOnly: !f.newOnly })}>
+                ✨ New <span className="text-[10px] opacity-60">{newCount}</span>
+              </ChipButton>
+            )}
+            {dropCount > 0 && (
+              <ChipButton active={f.dropsOnly} onClick={() => set({ dropsOnly: !f.dropsOnly })}>
+                ↓ Price drops <span className="text-[10px] opacity-60">{dropCount}</span>
+              </ChipButton>
+            )}
           </div>
         )}
 

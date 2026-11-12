@@ -2,7 +2,7 @@ import Link from "next/link";
 import { currentEmail, isAdminEmail } from "@/lib/auth";
 import { getEffectiveSettings, scoreSettingsOf } from "@/lib/prefs";
 import { getCurrentListings } from "@/lib/queries";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, listDateOf } from "@/lib/format";
 import { fareStatus } from "@/lib/flights/job";
 import FarePricer from "./fare-pricer";
 import Trips from "./trips";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const email = await currentEmail();
   const admin = isAdminEmail(email);
-  const [{ upload, rows }, { settings: s, personalized }, fares] = await Promise.all([
+  const [{ upload, previous, rows }, { settings: s, personalized }, fares] = await Promise.all([
     getCurrentListings(),
     getEffectiveSettings(email),
     fareStatus(),
@@ -67,6 +67,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       )}
       <Trips
         query={query}
+        previousList={previous && listDateOf(previous.filename)}
         rows={rows}
         admin={admin}
         origin={{ label: s.originLabel, lat: s.originLat, lng: s.originLng }}

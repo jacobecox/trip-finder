@@ -24,6 +24,8 @@ export interface Row {
   tags: Tag[];
   untagged: boolean;
   fare: FareInfo;
+  isNew: boolean; // not on the previous list
+  priceDropUsd: number; // stay got this much cheaper since the previous list (0 = no drop)
 }
 
 export type Trip = Row & Scored;
@@ -59,6 +61,28 @@ export function scoreTitle(r: { costScore: number | null; activityScore: number 
 }
 
 export const flightsUrl = (r: Trip) => (r.travelMode === "fly" && r.fare && "searchUrl" in r.fare ? r.fare.searchUrl : null);
+
+/** "New" and "↓ $75" tags: what changed since the previous list. */
+export function ChangeBadges({ r }: { r: Pick<Row, "isNew" | "priceDropUsd" | "priceUsd"> }) {
+  if (!r.isNew && !r.priceDropUsd) return null;
+  return (
+    <>
+      {r.isNew && (
+        <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-medium text-sky-300" title="Not on the previous list">
+          New
+        </span>
+      )}
+      {r.priceDropUsd > 0 && (
+        <span
+          className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300"
+          title={`Stay was ${fmtUsd(r.priceUsd + r.priceDropUsd)} on the previous list`}
+        >
+          ↓ {fmtUsd(r.priceDropUsd)}
+        </span>
+      )}
+    </>
+  );
+}
 
 /** One-line travel summary for a trip card. */
 export function TravelLine({ r, home }: { r: Trip; home: string }) {

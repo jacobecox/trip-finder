@@ -15,6 +15,8 @@ export interface Filters {
   country: string;
   state: string;
   drivableOnly: boolean;
+  newOnly: boolean;
+  dropsOnly: boolean;
 }
 
 const SORT_KEYS: SortKey[] = [
@@ -41,6 +43,8 @@ export function toQuery(f: Filters, sort: Sort, defaults: { filters: Filters; so
   if (f.dates.from) q.set("from", f.dates.from);
   if (f.dates.to) q.set("to", f.dates.to);
   if (f.drivableOnly) q.set("drive", "1");
+  if (f.newOnly) q.set("new", "1");
+  if (f.dropsOnly) q.set("drop", "1");
   if (f.flyFrom !== d.flyFrom) q.set("fly", f.flyFrom);
   if (f.tickets !== d.tickets) q.set("tickets", f.tickets);
   if (f.unit) q.set("unit", f.unit);
@@ -70,6 +74,8 @@ export function fromQuery(
       tag: (TAGS as readonly string[]).includes(tag) ? (tag as Tag) : "",
       dates: { from: date("from"), to: date("to") },
       drivableOnly: get("drive") === "1",
+      newOnly: get("new") === "1",
+      dropsOnly: get("drop") === "1",
       flyFrom: get("fly") || defaults.filters.flyFrom,
       tickets: Number.isInteger(tickets) && tickets >= 1 && tickets <= 20 ? String(tickets) : defaults.filters.tickets,
       unit: get("unit"),

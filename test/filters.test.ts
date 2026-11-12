@@ -11,6 +11,8 @@ const filters: Filters = {
   country: "",
   state: "",
   drivableOnly: false,
+  newOnly: false,
+  dropsOnly: false,
 };
 const defaults = { filters, sort: { key: "score" as const, dir: -1 as const } };
 
@@ -19,7 +21,7 @@ describe("filters in the address", () => {
     expect(toQuery(filters, defaults.sort, defaults)).toBe("");
   });
   it("round-trips a filtered, sorted view", () => {
-    const f: Filters = { ...filters, tag: "beach", dates: { from: "2026-12-01", to: "2026-12-31" }, drivableOnly: true, state: "CA" };
+    const f: Filters = { ...filters, tag: "beach", dates: { from: "2026-12-01", to: "2026-12-31" }, drivableOnly: true, newOnly: true, dropsOnly: true, state: "CA" };
     const sort = { key: "totalUsd" as const, dir: 1 as const };
     const qs = toQuery(f, sort, defaults);
     const back = fromQuery(Object.fromEntries(new URLSearchParams(qs)), defaults);

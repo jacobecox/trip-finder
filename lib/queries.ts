@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, lt, ne, sql } from "drizzle-orm";
 import { getDb, listing, listingsUpload, property, propertyTag, settings } from "@/lib/db";
 import { effectiveTags, isUntagged, type TagRow } from "@/lib/tags/effective";
 import { airportsByProperty, faresFor } from "@/lib/flights/fares";
@@ -30,9 +30,30 @@ export async function getLatestUpload() {
   return row ?? null;
 }
 
+/**
+ * What changed since the last different list (a re-upload of the same file doesn't count): stays
+ * not on it are new, and stays that got cheaper carry the drop. Matched by the exchange's inventory
+ * number, which stays the same across lists. Null on the first list, when there's nothing to compare.
+ */
+async function previousList(current: { id: number; filename: string }) {
+  const db = getDb();
+  const [prev] = await db
+    .select({ id: listingsUpload.id, filename: listingsUpload.filename })
+    .from(listingsUpload)
+    .where(and(lt(listingsUpload.id, current.id), ne(listingsUpload.filename, current.filename)))
+    .orderBy(desc(listingsUpload.id))
+    .limit(1);
+  if (!prev) return null;
+  const rows = await db
+    .select({ inventoryNumber: listing.inventoryNumber, priceUsd: listing.priceUsd })
+    .from(listing)
+    .where(eq(listing.uploadId, prev.id));
+  return { filename: prev.filename, prices: new Map(rows.map((r) => [r.inventoryNumber, r.priceUsd])) };
+}
+
 export async function getCurrentListings() {
   const upload = await getLatestUpload();
-  if (!upload) return { upload: null, rows: [] };
+  if (!upload) return { upload: null, previous: null, rows: [] };
   const rows = await getDb()
     .select({
       id: listing.id,
@@ -60,13 +81,22 @@ export async function getCurrentListings() {
     .innerJoin(property, eq(listing.propertyId, property.id))
     .where(eq(listing.uploadId, upload.id))
     .orderBy(listing.arrivalDate, listing.id);
-  const [tagMap, s] = await Promise.all([tagRowsByProperty(), getSettings()]);
+  const [tagMap, s, prev] = await Promise.all([tagRowsByProperty(), getSettings(), previousList(upload)]);
   const fares = await faresFor(rows, s);
   return {
     upload,
+    previous: prev && { filename: prev.filename },
     rows: rows.map((r) => {
       const tags = effectiveTags(tagMap.get(r.propertyId) ?? []);
-      return { ...r, tags, untagged: isUntagged(r, tags), fare: fares.get(r) ?? null };
+      const before = prev?.prices.get(r.inventoryNumber);
+      return {
+        ...r,
+        tags,
+        untagged: isUntagged(r, tags),
+        fare: fares.get(r) ?? null,
+        isNew: !!prev && before == null,
+        priceDropUsd: before != null && before > r.priceUsd ? before - r.priceUsd : 0,
+      };
     }),
   };
 }
