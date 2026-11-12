@@ -67,7 +67,7 @@ body {
     @apply text-muted hover:bg-white/5 hover:text-ink;
   }
   .field {
-    @apply rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink transition-colors placeholder:text-muted/70 hover:border-white/25 focus:border-accent/70 focus:outline-none;
+    @apply rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-base text-ink transition-colors placeholder:text-muted/70 hover:border-white/25 focus:border-accent/70 focus:outline-none sm:text-sm;
   }
   .card {
     @apply rounded-xl border border-line bg-surface;

@@ -19,8 +19,8 @@ export default async function GuidePage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">How Trip Finder works</h1>
         <p className="mt-1 text-muted">
-          Every month the resort exchange sends a list of week-long stays that are open. This site ranks them for our
-          family so the good ones are easy to spot.
+          Every month the resort exchange sends a list of week-long stays that are open. This site ranks them so the
+          good ones are easy to spot.
         </p>
       </header>
 
@@ -58,8 +58,13 @@ export default async function GuidePage() {
             between.
           </li>
           <li>
-            <b>Activities</b>: points for each kind of thing nearby, weighted toward what matters most for little kids
-            {liked.length > 0 && <>: {liked.map(tagDisplay).join(", ")}</>}.
+            <b>Activities</b>: points for each kind of thing nearby (beaches, theme parks, hiking, skiing, city
+            sights…), weighted by how much each one matters to you
+            {liked.length > 0 && <>, most to least: {liked.map(tagDisplay).join(", ")}</>}. Change the weights in{" "}
+            <Link className="link" href="/settings">
+              Settings
+            </Link>
+            .
           </li>
         </ul>
         <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -101,7 +106,7 @@ export default async function GuidePage() {
             activities), and gas and flight estimates. They only change what <i>you</i> see.
           </li>
           <li>
-            <b>Sort</b>: best score, cheapest, soonest, closest, and more.
+            <b>Sort by</b>: best score, cheapest, soonest, closest, and more.
           </li>
         </ul>
       </Section>

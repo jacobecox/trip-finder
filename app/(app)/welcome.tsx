@@ -36,7 +36,7 @@ export default function Welcome() {
         </li>
         <li>
           <span className="font-medium text-accent">2. The score (0–100) is the best mix</span> of a low total cost and lots
-          for the kids to do nearby. Green = best of what you&apos;re looking at.
+          to do nearby. Green = best of what you&apos;re looking at.
         </li>
         <li>
           <span className="font-medium text-accent">3. Narrow it down</span> by dates, activity (beach, theme parks…), or

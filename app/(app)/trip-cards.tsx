@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { daysUntil, fmtCountdown, fmtMiles, fmtShortDate, fmtUsd, nightsBetween } from "@/lib/format";
-import { tagDisplay } from "@/lib/tags/constants";
+import { tagDisplay, type Tag } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
 import { placeLine, ScoreBadge, TravelLine, TravelNote, type Trip } from "./travel";
 
@@ -15,7 +15,9 @@ export default function TripCards({
   home,
   flyFrom,
   originLabel,
+  activity,
 }: {
+  activity: Tag | "";
   trips: Trip[];
   color: (score: number | null) => string;
   tickets: number;
@@ -28,7 +30,7 @@ export default function TripCards({
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {trips.slice(0, limit).map((r) => (
-          <TripCard key={r.id} r={r} color={color(r.score)} tickets={tickets} home={home} flyFrom={flyFrom} originLabel={originLabel} />
+          <TripCard key={r.id} r={r} color={color(r.score)} tickets={tickets} home={home} flyFrom={flyFrom} originLabel={originLabel} activity={activity} />
         ))}
       </div>
       {trips.length > limit && (
@@ -49,7 +51,9 @@ function TripCard({
   home,
   flyFrom,
   originLabel,
+  activity,
 }: {
+  activity: Tag | "";
   r: Trip;
   color: string;
   tickets: number;
@@ -60,7 +64,7 @@ function TripCard({
   const nights = nightsBetween(r.arrivalDate, r.checkoutDate);
   const travelLabel = r.travelMode === "drive" ? "Gas" : "Flights";
   return (
-    <article className="card group flex flex-col gap-3 p-4 transition-colors hover:border-accent/40">
+    <article className="card group flex min-w-0 flex-col gap-3 p-4 transition-colors hover:border-accent/40">
       <header className="flex items-start gap-3">
         <span title={`Score ${r.score == null ? "not available yet" : Math.round(r.score)} out of 100`}>
           <ScoreBadge score={r.score} color={color} size="lg" />
@@ -99,7 +103,7 @@ function TripCard({
         <TravelLine r={r} home={home} />
       </div>
 
-      <TagChips tags={r.tags} untagged={r.untagged} max={3} />
+      <TagChips tags={r.tags} untagged={r.untagged} max={3} highlight={activity} />
 
       <details className="mt-auto text-sm">
         <summary className="w-fit list-none rounded-md text-xs font-medium text-muted transition-colors select-none hover:text-accent [&::-webkit-details-marker]:hidden">

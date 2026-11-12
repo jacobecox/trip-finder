@@ -11,12 +11,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <Logo className="h-10 w-10" />
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Trip Finder</h1>
-            <p className="text-sm text-muted">Our family&apos;s best resort weeks, ranked</p>
+            <p className="text-sm text-muted">The best resort weeks, ranked</p>
           </div>
         </div>
         <p className="text-sm text-muted">
           Each month&apos;s resort availability list, sorted by total trip cost (stay + flights or gas) and how much
-          there is for the kids to do.
+          there is to do nearby.
         </p>
         {error && (
           <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">

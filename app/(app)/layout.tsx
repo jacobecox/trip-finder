@@ -1,34 +1,33 @@
 import Link from "next/link";
 import { auth, isAdminEmail, signOut } from "@/lib/auth";
-import { SubmitButton } from "@/components/ui";
 import { Logo } from "@/components/logo";
-import Nav from "./nav";
+import Nav, { AccountMenu, AdminMenu } from "./nav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = (await auth())?.user;
   const firstName = user?.name?.split(" ")[0];
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-[1100] border-b border-line bg-bg/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5">
-          <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold tracking-tight">
+      <header className="sticky top-0 z-[1100] border-b border-line bg-bg/85 pt-[env(safe-area-inset-top)] backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
+          <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold tracking-tight" aria-label="Trip Finder home">
             <Logo />
-            <span className="hidden sm:inline">Trip Finder</span>
+            <span className="hidden md:inline">Trip Finder</span>
           </Link>
-          <Nav admin={isAdminEmail(user?.email)} />
-          <form
-            className="flex shrink-0 items-center gap-2"
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            {firstName && <span className="hidden text-sm text-muted md:inline">Hi, {firstName}</span>}
-            <SubmitButton className="btn btn-ghost px-2">Sign out</SubmitButton>
-          </form>
+          <Nav />
+          <div className="flex shrink-0 items-center gap-1">
+            {isAdminEmail(user?.email) && <AdminMenu />}
+            <AccountMenu
+              name={firstName}
+              signOut={async () => {
+                "use server";
+                await signOut({ redirectTo: "/login" });
+              }}
+            />
+          </div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 pt-6 pb-16">{children}</main>
+      <main className="mx-auto max-w-7xl px-3 pt-4 pb-16 sm:px-4 sm:pt-6">{children}</main>
     </div>
   );
 }

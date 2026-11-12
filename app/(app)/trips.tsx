@@ -23,16 +23,16 @@ const ListingsMap = dynamic(() => import("./listings-map"), {
 });
 
 const PRESETS: { label: string; sort: Sort }[] = [
-  { label: "Best score first", sort: { key: "score", dir: -1 } },
-  { label: "Cheapest total first", sort: { key: "totalUsd", dir: 1 } },
-  { label: "Soonest first", sort: { key: "arrivalDate", dir: 1 } },
-  { label: "Closest first", sort: { key: "distanceMiles", dir: 1 } },
-  { label: "Shortest drive first", sort: { key: "driveHours", dir: 1 } },
-  { label: "Cheapest stay first", sort: { key: "priceUsd", dir: 1 } },
-  { label: "Cheapest travel first", sort: { key: "travelUsd", dir: 1 } },
-  { label: "Most expensive first", sort: { key: "totalUsd", dir: -1 } },
-  { label: "Latest first", sort: { key: "arrivalDate", dir: -1 } },
-  { label: "Lowest score first", sort: { key: "score", dir: 1 } },
+  { label: "Best score", sort: { key: "score", dir: -1 } },
+  { label: "Cheapest total", sort: { key: "totalUsd", dir: 1 } },
+  { label: "Soonest", sort: { key: "arrivalDate", dir: 1 } },
+  { label: "Closest", sort: { key: "distanceMiles", dir: 1 } },
+  { label: "Shortest drive", sort: { key: "driveHours", dir: 1 } },
+  { label: "Cheapest stay", sort: { key: "priceUsd", dir: 1 } },
+  { label: "Cheapest travel", sort: { key: "travelUsd", dir: 1 } },
+  { label: "Most expensive", sort: { key: "totalUsd", dir: -1 } },
+  { label: "Latest", sort: { key: "arrivalDate", dir: -1 } },
+  { label: "Lowest score", sort: { key: "score", dir: 1 } },
 ];
 
 const VIEWS = [
@@ -154,7 +154,7 @@ export default function Trips({
       <section className="card space-y-3 p-3 sm:p-4" aria-label="Filters">
         <div className="grid grid-cols-2 items-end gap-3 md:grid-cols-4 lg:grid-cols-[1fr_1fr_1fr_auto_auto]">
           <label className="block space-y-1">
-            <span className="label">Sort</span>
+            <span className="label">Sort by</span>
             <select className="field w-full" value={preset} onChange={(e) => setSort(PRESETS[Number(e.target.value)].sort)}>
               {preset < 0 && <option value={-1}>Custom (from table)</option>}
               {PRESETS.map((p, i) => (
@@ -172,7 +172,7 @@ export default function Trips({
             <DateRangePicker value={f.dates} onChange={(dates) => set({ dates })} counts={dayCounts} className="field w-full" />
           </div>
           {airports.alt ? (
-            <label className="block space-y-1">
+            <label className="col-span-2 block space-y-1 md:col-span-1">
               <span className="label">
                 Fly from
                 <Hint>
@@ -308,6 +308,7 @@ export default function Trips({
           home={airports.home}
           flyFrom={f.flyFrom}
           originLabel={origin.label}
+          activity={f.tag}
         />
       )}
     </div>

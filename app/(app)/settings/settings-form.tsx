@@ -36,7 +36,7 @@ type Form = { [K in Exclude<keyof S, "tagWeights">]: string } & {
   tagWeights: Record<string, string>;
 };
 
-const input = "field mt-1 w-full";
+const input = "field w-full";
 const hint = "text-xs text-muted";
 const str = (s: S): Form => ({
   ...(Object.fromEntries(Object.entries(s).map(([k, v]) => [k, typeof v === "object" ? v : String(v)])) as Form),
@@ -60,8 +60,8 @@ export default function SettingsForm({
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
 
   const field = (k: Exclude<keyof Form, "tagWeights">, label: string, extra?: React.ReactNode) => (
-    <label className="block text-sm">
-      {label}
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="font-medium">{label}</span>
       <input className={input} value={f[k]} onChange={set(k)} inputMode="decimal" required />
       {extra}
     </label>
@@ -178,24 +178,22 @@ export default function SettingsForm({
   return (
     <form onSubmit={save} className="space-y-6">
       {admin && (
-        <fieldset className="card space-y-3 p-4">
-          <legend className="float-left mb-1 w-full font-semibold">Home / origin (shared)</legend>
-          <label className="block text-sm">
-            Origin
+        <Section title="Home / origin (shared)">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Origin</span>
             <input className={input} value={f.originLabel} onChange={set("originLabel")} required />
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             {field("originLat", "Latitude")}
             {field("originLng", "Longitude")}
           </div>
           <p className={hint}>Change the origin name and leave the coordinates alone to look them up automatically.</p>
           {field("maxDriveHours", "Max drive hours")}
-        </fieldset>
+        </Section>
       )}
 
-      <fieldset className="card space-y-3 p-4">
-        <legend className="float-left mb-1 w-full font-semibold">Trip cost (USD)</legend>
-        <div className="grid grid-cols-2 gap-3">
+      <Section title="Trip cost (USD)">
+        <div className="grid gap-4 sm:grid-cols-2">
           {field(
             "tickets",
             "Plane tickets",
@@ -206,7 +204,7 @@ export default function SettingsForm({
           {field("mpg", "Car MPG")}
           {field("gasPriceUsd", "Gas price ($/gal)")}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           {field("flightBaseUsd", "Flight estimate: base ($/ticket)")}
           {field("flightPerMileUsd", "Flight estimate: $/mile")}
         </div>
@@ -214,15 +212,14 @@ export default function SettingsForm({
           Drivable trips cost lodging + round-trip gas. Other trips use real fares once priced, otherwise this rough
           estimate per ticket (base + $/mile × straight-line miles).
         </p>
-      </fieldset>
+      </Section>
 
       {admin && (
         <>
-          <fieldset className="card space-y-3 p-4">
-            <legend className="float-left mb-1 w-full font-semibold">Flights (shared)</legend>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block text-sm">
-                Home airport
+          <Section title="Flights (shared)">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Home airport</span>
                 <input
                   className={input}
                   value={f.originAirport}
@@ -248,13 +245,12 @@ export default function SettingsForm({
               Each fare search covers every candidate airport for a property. The cheapest fare + extra drive (both
               ways, plus gas) wins, so a farther airport has to save real money.
             </p>
-          </fieldset>
+          </Section>
 
-          <fieldset className="card space-y-3 p-4">
-            <legend className="float-left mb-1 w-full font-semibold">Also fly from (shared)</legend>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block text-sm">
-                Second airport
+          <Section title="Also fly from (shared)">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Second airport</span>
                 <input className={input} value={f.altOriginAirport} onChange={set("altOriginAirport")} maxLength={3} />
                 <span className={hint}>
                   Searched together with the home airport (no extra searches). Leave empty to turn off.
@@ -272,21 +268,20 @@ export default function SettingsForm({
               Flying from the second airport adds the drive there and back (time at the $/hour above, plus gas) and
               parking. The listings page can show either airport or the better of the two.
             </p>
-          </fieldset>
+          </Section>
         </>
       )}
 
-      <fieldset className="card space-y-3 p-4">
-        <legend className="float-left mb-1 w-full font-semibold">Scoring</legend>
-        <div className="grid grid-cols-2 gap-3">
+      <Section title="Scoring">
+        <div className="grid gap-4 sm:grid-cols-2">
           {field("costWeight", "Cost weight")}
           {field("activityWeight", "Activity weight")}
         </div>
         <p className={hint}>Score = cost × cost weight + activities × activity weight (weights are normalized).</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {TAGS.map((t) => (
-            <label key={t} className="block text-sm">
-              {tagDisplay(t)}
+            <label key={t} className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">{tagDisplay(t)}</span>
               <input
                 className={input}
                 inputMode="decimal"
@@ -302,10 +297,10 @@ export default function SettingsForm({
           ))}
         </div>
         <p className={hint}>How much each activity matters to you. 0 ignores it.</p>
-      </fieldset>
+      </Section>
 
-      <div className="sticky bottom-4 flex items-center gap-3">
-        <button disabled={busy} className="btn btn-primary px-5 py-2 shadow-lg shadow-black/50">
+      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-bg/90 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
+        <button disabled={busy} className="btn btn-primary px-5 py-2">
           {busy && <Spinner />}
           {busy ? "Saving…" : "Save settings"}
         </button>
@@ -323,5 +318,14 @@ export default function SettingsForm({
         {msg && <p className={`text-sm ${msg.startsWith("Saved") ? "text-emerald-300" : "text-amber-300"}`}>{msg}</p>}
       </div>
     </form>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="card space-y-4 p-4 sm:p-5">
+      <h2 className="font-semibold">{title}</h2>
+      {children}
+    </section>
   );
 }
