@@ -8,6 +8,7 @@ import { TAG_EMOJI, TAG_LABELS, type Tag } from "@/lib/tags/constants";
 import { getTrip } from "@/lib/trip";
 import { Cost } from "../../trip-cards";
 import { flightFacts, placeLine, ScoreBadge, TravelLine } from "../../travel";
+import { BackLink } from "./back-link";
 import { ShareButton } from "./share-button";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +60,9 @@ export default async function TripPage({ params }: Props) {
 
   const nights = nightsBetween(r.arrivalDate, r.checkoutDate);
   const quote = r.travelMode === "fly" && r.fareSource === "quote" && r.fare && "iata" in r.fare ? r.fare : null;
-  const mapsQuery = r.lat != null ? `${r.lat},${r.lng}` : `${r.property}, ${placeLine(r)}`;
+  // Search by name (near the located spot) so the maps app opens the resort's own place page, with reviews
+  const mapsQuery = `${r.property}, ${[r.city, r.state].filter(Boolean).join(", ")}`;
+  const near = r.lat != null ? `&sll=${r.lat},${r.lng}` : "";
 
   return (
     <article className="mx-auto max-w-2xl space-y-4">
@@ -133,7 +136,7 @@ export default async function TripPage({ params }: Props) {
         )}
         <p className="text-muted">
           {fmtMiles(r.distanceMiles)} from {origin.label} as the crow flies ·{" "}
-          <a className="link" href={`https://maps.apple.com/?q=${encodeURIComponent(mapsQuery)}`} target="_blank" rel="noreferrer">
+          <a className="link" href={`https://maps.apple.com/?q=${encodeURIComponent(mapsQuery)}${near}`} target="_blank" rel="noreferrer">
             Apple Maps ↗
           </a>{" "}
           ·{" "}
@@ -185,14 +188,6 @@ export default async function TripPage({ params }: Props) {
 
       <OtherWeeks others={others} title="Other weeks at this resort" />
     </article>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link href="/" className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-accent">
-      ‹ All trips
-    </Link>
   );
 }
 

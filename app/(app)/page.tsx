@@ -10,7 +10,7 @@ import Welcome from "./welcome";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const email = await currentEmail();
   const admin = isAdminEmail(email);
   const [{ upload, rows }, { settings: s, personalized }, fares] = await Promise.all([
@@ -35,6 +35,7 @@ export default async function Home() {
         )}
       </div>
     );
+  const query = await searchParams;
   const resorts = new Set(rows.map((r) => r.propertyId)).size;
   return (
     <div className="space-y-5">
@@ -65,6 +66,7 @@ export default async function Home() {
         </p>
       )}
       <Trips
+        query={query}
         rows={rows}
         admin={admin}
         origin={{ label: s.originLabel, lat: s.originLat, lng: s.originLng }}

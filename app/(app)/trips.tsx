@@ -7,10 +7,11 @@ import { scoreListings, type ScoreSettings } from "@/lib/scoring";
 import { fareFrom } from "@/lib/flights/pick";
 import { rampColor, scoreScale } from "@/lib/map";
 import { Hint, Spinner } from "@/components/ui";
-import { DateRangePicker, overlaps, stayDayCounts, type DateRange } from "./date-picker";
+import { DateRangePicker, overlaps, stayDayCounts } from "./date-picker";
 import { flightsUrl, travelSummary, type Row, type Trip } from "./travel";
 import TripCards from "./trip-cards";
 import TripTable, { type Sort } from "./trip-table";
+import { fromQuery, LIST_KEY, toQuery, type Filters } from "./filter-url";
 
 // MapLibre touches `window`, so the map only loads in the browser
 const ListingsMap = dynamic(() => import("./listings-map"), {
@@ -43,16 +44,6 @@ const VIEWS = [
 type View = (typeof VIEWS)[number]["id"];
 const VIEW_KEY = "trip-finder:view";
 
-interface Filters {
-  tickets: string;
-  flyFrom: string;
-  dates: DateRange;
-  tag: Tag | "";
-  unit: string;
-  country: string;
-  state: string;
-  drivableOnly: boolean;
-}
 
 export default function Trips({
   rows: raw,
@@ -60,7 +51,9 @@ export default function Trips({
   airports,
   scoreSettings,
   admin,
+  query,
 }: {
+  query: Record<string, string | string[] | undefined>;
   rows: Row[];
   origin: { label: string; lat: number; lng: number };
   airports: { home: string; alt: string };
@@ -77,10 +70,33 @@ export default function Trips({
     state: "",
     drivableOnly: false,
   };
-  const [f, setF] = useState<Filters>(DEFAULTS);
+  const defaults = { filters: DEFAULTS, sort: PRESETS[0].sort };
+  const [initial] = useState(() => fromQuery(query, defaults));
+  const [f, setF] = useState<Filters>(initial.filters);
   const set = (patch: Partial<Filters>) => setF((x) => ({ ...x, ...patch }));
-  const [sort, setSort] = useState<Sort>(PRESETS[0].sort);
-  const [more, setMore] = useState(false);
+  const [sort, setSort] = useState<Sort>(initial.sort);
+  const qs = toQuery(f, sort, defaults);
+  // The address is the source of truth on arrival: Back can show a cached render from before the
+  // filters were set, so read them from the address once, then keep the address in step.
+  const [synced, setSynced] = useState(false);
+  useEffect(() => {
+    if (synced) return;
+    const here = window.location.search;
+    if (here !== qs) {
+      const fromHere = fromQuery(Object.fromEntries(new URLSearchParams(here)), defaults);
+      setF(fromHere.filters); // eslint-disable-line react-hooks/set-state-in-effect -- restore after hydration
+      setSort(fromHere.sort);
+    }
+    setSynced(true);
+  }, [synced, qs]); // eslint-disable-line react-hooks/exhaustive-deps -- defaults is rebuilt each render
+  useEffect(() => {
+    if (!synced) return;
+    if (window.location.search !== qs) window.history.replaceState(null, "", `${window.location.pathname}${qs}`);
+    try {
+      sessionStorage.setItem(LIST_KEY, `/${qs}`);
+    } catch {}
+  }, [qs, synced]);
+  const [more, setMore] = useState(() => !!(initial.filters.unit || initial.filters.country || initial.filters.state || initial.filters.tickets !== DEFAULTS.tickets));
   const [view, setViewState] = useState<View>("cards");
   useEffect(() => {
     try {

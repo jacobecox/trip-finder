@@ -74,6 +74,12 @@ export function chooseByOrigin(
 }
 
 /** Latest cached quote for each listing's search, turned into the best airport choice. */
+/** Paid seats in a "adults/children/lapInfants" key (lap infants don't get a seat). */
+export const seatsIn = (passengers: string) => {
+  const [adults, children] = passengers.split("/").map(Number);
+  return Math.max(1, (adults || 0) + (children || 0));
+};
+
 export async function faresFor<T extends { propertyId: number; arrivalDate: string; checkoutDate: string }>(
   rows: T[],
   s: FareSettings,
@@ -84,15 +90,22 @@ export async function faresFor<T extends { propertyId: number; arrivalDate: stri
   const quotes = dates.length
     ? await getDb().select().from(flightQuote).where(inArray(flightQuote.outboundDate, dates))
     : [];
-  const byKey = new Map(quotes.filter((q) => q.status !== "failed").map((q) => [quoteKey(q), q]));
+  // Keyed without passengers: a fare searched for another seat count still beats a distance guess
+  // (scoring scales it per seat), so changing "Plane tickets" never hides the real prices.
   const passengers = passengersKey(passengersFor(s.tickets, s.lapInfants));
+  const byKey = new Map<string, (typeof quotes)[number]>();
+  for (const q of quotes) {
+    if (q.status === "failed") continue;
+    const k = quoteKey({ ...q, passengers: "" });
+    if (!byKey.has(k) || q.passengers === passengers) byKey.set(k, q);
+  }
   for (const r of rows) {
     const list = airports.get(r.propertyId) ?? [];
     const base = {
       airports: searchAirports(list, s.maxAirports).join(","),
       outboundDate: r.arrivalDate,
       returnDate: r.checkoutDate,
-      passengers,
+      passengers: "",
     };
     // prefer the current (e.g. COS,DEN) search; fall back to an older home-airport-only quote
     const q = byKey.get(quoteKey({ ...base, origin: searchOrigins(s) })) ?? byKey.get(quoteKey({ ...base, origin: s.originAirport }));
@@ -104,7 +117,7 @@ export async function faresFor<T extends { propertyId: number; arrivalDate: stri
     out.set(
       r,
       best
-        ? { ...best, byOrigin, seats: s.tickets, fetchedAt: q.fetchedAt.toISOString(), searchUrl: q.searchUrl }
+        ? { ...best, byOrigin, seats: seatsIn(q.passengers), fetchedAt: q.fetchedAt.toISOString(), searchUrl: q.searchUrl }
         : { status: "none", fetchedAt: q.fetchedAt.toISOString() },
     );
   }
