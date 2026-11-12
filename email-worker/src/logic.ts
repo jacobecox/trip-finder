@@ -21,13 +21,33 @@ export const parseList = (s: string | undefined) =>
     .map((x) => x.trim().toLowerCase())
     .filter(Boolean);
 
+const GMAIL = new Set(["gmail.com", "googlemail.com"]);
+
+/**
+ * Canonical mailbox for allowlist checks. Gmail auto-forwarding sends as
+ * you+caf_=trips=jacobcox.dev@gmail.com, so drop the +tag; Gmail also ignores dots in the name.
+ */
+export function mailbox(addr: string) {
+  const a = addr.trim().toLowerCase();
+  const at = a.lastIndexOf("@");
+  if (at < 0) return a;
+  let local = a.slice(0, at).split("+")[0];
+  let domain = a.slice(at + 1);
+  if (GMAIL.has(domain)) {
+    local = local.replaceAll(".", "");
+    domain = "gmail.com";
+  }
+  return `${local}@${domain}`;
+}
+
 const isPdf = (a: Incoming["attachments"][number]) =>
   a.mimeType?.toLowerCase() === "application/pdf" || !!a.filename?.toLowerCase().endsWith(".pdf");
 
 export function decide(m: Incoming, allowedSenders: string[]): Decision {
   const from = [m.envelopeFrom, m.headerFrom].filter(Boolean).map((x) => x!.toLowerCase());
   if (from.includes(GMAIL_FORWARDING_CONFIRM)) return { action: "forward" };
-  if (!from.some((f) => allowedSenders.includes(f))) return { action: "reject", reason: "Sender not allowed" };
+  const allowed = new Set(allowedSenders.map(mailbox));
+  if (!from.some((f) => allowed.has(mailbox(f)))) return { action: "reject", reason: "Sender not allowed" };
 
   // the largest PDF, in case the email also has a small PDF flyer
   let index = -1;

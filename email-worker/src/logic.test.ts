@@ -24,6 +24,18 @@ describe("decide", () => {
   });
 });
 
+describe("Gmail auto-forward envelope", () => {
+  it("accepts your address with Gmail's +caf_ forwarding tag or dots, but not a different mailbox", () => {
+    const gm = parseList("me.person@gmail.com");
+    const fwd = { envelopeFrom: "mEperson+caf_=trips=jacobcox.dev@gmail.com", headerFrom: "relative@example.com", attachments: [pdf(5)] };
+    expect(decide(fwd, gm)).toEqual({ action: "ingest", index: 0 });
+    expect(decide({ ...fwd, envelopeFrom: "me.person@googlemail.com" }, gm)).toEqual({ action: "ingest", index: 0 });
+    expect(decide({ ...fwd, envelopeFrom: "mepersonx+caf_=trips=jacobcox.dev@gmail.com" }, gm)).toMatchObject({ action: "reject" });
+    // dots only matter outside Gmail
+    expect(decide({ envelopeFrom: "a.b@corp.example", attachments: [pdf(5)] }, parseList("ab@corp.example"))).toMatchObject({ action: "reject" });
+  });
+});
+
 describe("safeEqual", () => {
   it("compares exactly and never matches an empty secret", () => {
     expect(safeEqual("abc", "abc")).toBe(true);
