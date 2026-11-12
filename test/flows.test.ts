@@ -252,7 +252,9 @@ describe("settings", () => {
   });
 });
 
-const dir = path.join(__dirname, "../fixtures");
+// Runs against a real availability PDF when one is around: any PDF uploaded locally lands in
+// .local-storage/ (gitignored, since the PDFs are real inventory). Skipped otherwise, e.g. in CI.
+const dir = path.join(__dirname, "../.local-storage");
 const pdf = existsSync(dir) ? readdirSync(dir).find((f) => f.endsWith(".pdf")) : undefined;
 
 describe.skipIf(!pdf)("upload route with the fixture PDF", () => {

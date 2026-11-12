@@ -1,4 +1,4 @@
-# secrets — never commit
+# secrets: never commit
 .env
 .env.*
 !.env.example
@@ -13,11 +13,10 @@ coverage
 *.tsbuildinfo
 next-env.d.ts
 
-# local data
+# local data: uploaded PDFs are real inventory and stay out of the public repo
 .local-storage/
-.DS_Store
 
-# fixtures contain real inventory PDFs; keep out of the public repo
-fixtures/*.pdf
-.env*
-!.env.example
+# editor / OS
+.vscode/
+.idea/
+.DS_Store

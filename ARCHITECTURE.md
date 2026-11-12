@@ -1,23 +1,30 @@
-# Trip Finder — Architecture & Roadmap
+# Trip Finder: architecture
 
-Private web app that ranks monthly vacation-exchange listings for a family
-(2 adults, toddler, infant). Each month a PDF of available 7-night resort stays
-arrives. The app ranks them by total trip cost (lodging + flights for 3 from COS,
-or gas if drivable) and kid-friendly activities, with a map view and email ingest.
+Private web app that ranks a monthly vacation-exchange availability list. Each month a PDF of
+open 7-night resort stays arrives. The app ranks them by total trip cost (lodging + flights from
+home, or gas if drivable) and activities nearby, with cards, a map and a table, email import and
+a monthly top-picks email.
 
 ## Stack
-- Next.js (App Router) + TypeScript, deployed on Vercel (Pro)
+- Next.js (App Router) + TypeScript, deployed on Vercel (Git-connected: push to main deploys)
 - Neon Postgres (Vercel Marketplace) + Drizzle ORM with migrations
 - Vercel Blob for original PDFs, behind a small `BlobStore` interface
 - Auth.js v5, Google provider, `ALLOWED_EMAILS` allowlist
 - Nominatim / OpenStreetMap (geocoding + activity category search, 1 req/s, no key)
 - OpenRouteService (driving directions only; its geocoder returned 403s despite quota)
-- Tailwind
+- Tailwind (dark theme, yellow accent; tokens in `app/globals.css`)
+- SerpApi Google Flights for real fares; Cloudflare Email Worker (`email-worker/`) for mail in and out
 - Portable: `output: "standalone"` + Dockerfile; no Vercel-only APIs in core logic
 
 ## Security
 Repo is public. All secrets live in `.env` (gitignored); `.env.example` documents
-names only. Real PDFs are gitignored.
+names only. Real PDFs are never committed: uploads saved locally go to `.local-storage/` (gitignored).
+
+## Access
+- Sign-in is limited to `ALLOWED_EMAILS`. `ADMIN_EMAILS` (also allowed) can upload, edit resorts, change
+  the shared settings and spend flight searches; every mutating API route checks this (`requireAdmin`).
+- Everyone else can browse and keep their own trip-cost and scoring settings (`user_prefs`, storing only
+  values that differ from the shared ones), so e.g. one person can see costs for 1 ticket instead of 3.
 
 ## Data model
 - `listings_upload`: id, uploaded_at, blob_url, filename, row_count, warning_count
@@ -32,17 +39,18 @@ names only. Real PDFs are gitignored.
 - `property_tag`: (property_id, tag) unique; `osm` (auto) and `manual` kept separately,
   effective = manual ?? osm. Property also has tag_status and tags_reviewed.
 
-## Roadmap
+## Build phases (all done)
 1. **PDF upload → parse → listings table**; properties geocoded with drive time from COS.
    Parser is a pure function using pdfjs text items bucketed by header x-positions.
-2. **Activity tags** per property (beach, theme parks, hiking, skiing, kid-friendly) and
+2. **Activity tags** per property (beach, theme parks, zoo, hiking, skiing, scenic, city) and
    scoring: `final = 0.75 × cost_score + 0.25 × activity_score` (weights configurable);
    untagged properties are flagged.
 3. **Flight pricing** via SerpApi Google Flights from COS to each property's candidate airports
    (one search covers them all). Cache 24h; run from a button with a monthly search cap.
    DEN is searched in the same request; a "Fly from" toggle shows COS, DEN or the cheaper.
 4. **Map view** (MapLibre GL + OpenFreeMap vector tiles, free, no key), pins colored by score, shares filters with table. Done.
-5. **Email ingest** (webhook with shared secret) + monthly "top picks" email.
+5. **Email ingest** (webhook with shared secret) + monthly "top picks" email. Done.
+6. **Polish**: trip cards, guide page, admin-only tools, per-person settings, phone layout + home-screen app.
 
 ## Phase 2 notes
 - Tags come from Nominatim category searches around each property (beach 3 mi, theme parks
@@ -116,3 +124,12 @@ names only. Real PDFs are gitignored.
   fails. If free-API limits keep locations pending, it goes out anyway after 36 h with a note.
 - Sending goes through the same Worker (`POST /send`): Workers can only send to verified Email
   Routing destinations, so the Worker always sends to `FORWARD_TO`, and the app never holds an address.
+- The email is dark like the app and built for mail clients: tables, inline styles, hex colors, a PNG logo
+  and an image button. Gmail's iPhone app inverts colors in dark mode even for dark emails, so backgrounds
+  are gradients (left alone), outlines are 1px of background instead of borders, and text uses a Gmail-only
+  blend-mode trick (`u + .body`) that flips inverted text back to light. Subject: "top 10 picks <date in the
+  PDF's name>"; a hidden preview line summarizes the #1 pick.
+
+## Phone
+- Layout is checked at 430px (iPhone 16 Pro Max). Inputs are 16px on small screens so iOS doesn't zoom.
+- `app/manifest.ts` + `app/apple-icon.png` + `public/icons/` make "Add to Home Screen" open full screen.
