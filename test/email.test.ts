@@ -112,7 +112,7 @@ describe("email ingest webhook", () => {
     expect(searchFares).toHaveBeenCalledTimes(1); // 1 search fits in the monthly cap -> auto-priced
     expect(sendEmail).toHaveBeenCalledTimes(1);
     const mail = sendEmail.mock.calls[0][0];
-    expect(mail.subject).toBe("Trip Finder: top 2 picks from Dec Availability.pdf");
+    expect(mail.subject).toMatch(/^Trip Finder: top 2 picks \d{1,2}\/\d{1,2}\/\d{4}$/); // no date in the name: import day
     expect(mail.text).toContain("Resort (Orlando, FL, United States)");
     expect(mail.text).toContain("United");
     expect(mail.html).toContain("https://trips.example");

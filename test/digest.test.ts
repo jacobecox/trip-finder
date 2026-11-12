@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { previewText, renderDigest, toHex, type Pick } from "@/lib/digest";
+import { listDateOf, previewText, renderDigest, toHex, type Pick } from "@/lib/digest";
 
 const pick = (over: Partial<Pick> = {}): Pick => ({
   property: "Sand <Pebbles>",
@@ -24,7 +24,7 @@ const pick = (over: Partial<Pick> = {}): Pick => ({
 
 const base = {
   appUrl: "https://trips.example.test",
-  filename: "Dec.pdf",
+  filename: "DEX Select Availability 11.10.2026 DexSelect.pdf",
   listingCount: 205,
   resortCount: 103,
   firstDate: "2026-11-20",
@@ -46,7 +46,9 @@ describe("toHex", () => {
 describe("renderDigest", () => {
   it("renders app-style cards: score, costs, escaped names, links, capped chips", () => {
     const { subject, html, text } = renderDigest({ ...base, picks: [pick(), pick({ property: "Snow Lake", travelMode: "drive", travel: "🚗 6h drive · 400 mi", flightsUrl: null, tags: [] })] });
-    expect(subject).toBe("Trip Finder: top 2 picks from Dec.pdf");
+    expect(subject).toBe("Trip Finder: top 2 picks 11/10/2026");
+    expect(html).toContain("From the list DEX Select Availability 11.10.2026 DexSelect.pdf.");
+    expect(html).toContain("/icons/email-button.png");
     expect(html).toContain("Sand &lt;Pebbles&gt;");
     expect(html).not.toContain("Sand <Pebbles>");
     expect(html).toContain(">91<");
@@ -76,7 +78,8 @@ describe("renderDigest", () => {
 
   it("handles an import with nothing scored yet", () => {
     const { subject, html } = renderDigest({ ...base, picks: [] });
-    expect(subject).toBe("Trip Finder: Dec.pdf imported");
+    expect(subject).toBe("Trip Finder: new list 11/10/2026 imported");
+    expect(listDateOf("Dec.pdf", base.now)).toBe("11/12/2026");
     expect(html).toContain("No scored trips yet");
   });
 });

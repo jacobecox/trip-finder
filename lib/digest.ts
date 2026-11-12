@@ -135,8 +135,8 @@ function statusLines(d: DigestInput) {
 // blend-mode trick, active only in Gmail (`u + .body` matches Gmail's wrapper): each text block
 // sits in a "screen" span holding a "difference" span, both on black. Gmail inverts those to
 // white; difference then flips the inverted text back to its light color and screen drops the
-// black around it. Yellow text can't survive that round trip, so Gmail gets white text (and an
-// outlined button) in place of the yellow bits.
+// black around it. Yellow text can't survive that round trip, so Gmail gets white text in place of
+// the yellow bits; the button is an image.
 const C = {
   bg: "#0c0e12",
   surface: "#151820",
@@ -153,8 +153,7 @@ const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial
 const GMAIL_CSS = `u + .body .gs{background:#000;mix-blend-mode:screen}
 u + .body .gd{background:#000;mix-blend-mode:difference}
 u + .body .ya{display:none!important}
-u + .body .gw{display:inline!important}
-u + .body .gwb{display:block!important}`;
+u + .body .gw{display:inline!important}`;
 
 /** Light text that stays light in Gmail's dark mode. `inline` for text inside a line or chip. */
 const tx = (html: string, style: string, inline = false) =>
@@ -270,6 +269,12 @@ function cardHtml(p: Pick, i: number, d: DigestInput) {
   return `<tr><td style="padding:0 0 12px">${box(inner, { bg: C.surface, radius: 14, pad: "16px" })}</td></tr>`;
 }
 
+/** "DEX Select Availability 11.10.2026 DexSelect.pdf" → "11/10/2026"; today's date if the name has none. */
+export function listDateOf(filename: string, now = new Date()) {
+  const m = filename.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
+  return m ? `${Number(m[1])}/${Number(m[2])}/${m[3]}` : now.toLocaleDateString("en-US", { timeZone: "America/Denver" });
+}
+
 /**
  * The inbox preview line (next to the subject). Inboxes show the first text in the email, so this
  * hidden line goes first, followed by invisible filler so the page text doesn't run on after it.
@@ -287,9 +292,10 @@ const PREVIEW_FILLER = "&#847;&zwnj;&nbsp;".repeat(90);
 
 /** Pure: subject + HTML + text for the top-picks email. */
 export function renderDigest(d: DigestInput) {
+  const listDate = listDateOf(d.filename, d.now);
   const subject = d.picks.length
-    ? `Trip Finder: top ${d.picks.length} picks from ${d.filename}`
-    : `Trip Finder: ${d.filename} imported`;
+    ? `Trip Finder: top ${d.picks.length} picks ${listDate}`
+    : `Trip Finder: new list ${listDate} imported`;
   const status = statusLines(d);
   const e = escapeHtml;
   const range =
@@ -322,13 +328,10 @@ export function renderDigest(d: DigestInput) {
     `All trips: ${d.appUrl}`,
   ].join("\n");
 
+  // The button is an image: Gmail's dark mode recolors text, and no text color survives on yellow.
+  // Alt text on a yellow background still reads as a button when images are blocked.
   const button = (label: string) =>
-    // Yellow button everywhere but Gmail; Gmail gets a yellow-outlined dark one with white text
-    `<a href="${e(d.appUrl)}" class="ya" style="display:inline-block;${solid(C.accent)};color:${C.accentInk};font-weight:600;font-size:15px;line-height:20px;padding:12px 22px;border-radius:10px;text-decoration:none">${label}</a>
-    <div class="gwb" style="display:none;mso-hide:all"><a href="${e(d.appUrl)}" style="text-decoration:none;display:inline-block">${box(
-      tx(label, "color:#ffffff;font-weight:600;font-size:15px;line-height:20px", true),
-      { bg: C.surface2, line: C.accent, radius: 10, pad: "11px 21px", extra: "width:auto" },
-    )}</a></div>`;
+    `<a href="${e(d.appUrl)}" style="text-decoration:none;display:inline-block"><img src="${e(d.appUrl)}/icons/email-button.png" width="180" height="44" alt="${label}" style="display:block;border:0;border-radius:10px;${solid(C.accent)};color:${C.accentInk};font-family:${FONT};font-size:15px;font-weight:600;line-height:44px;text-align:center"></a>`;
 
   const html = `<!doctype html>
 <html lang="en"><head>
@@ -375,7 +378,7 @@ ${GMAIL_CSS}</style>
 
   <tr><td align="center" style="padding:12px 0 8px">${button("See all trips →")}</td></tr>
   <tr><td align="center" style="padding:16px 4px 0">${tx(
-    `Prices are from ${e(d.filename)}; flight prices change daily, so check before booking.<br>You get this because you use Trip Finder.`,
+    `From the list ${e(d.filename)}. Flight prices change daily, so check before booking.<br>You get this because you use Trip Finder.`,
     `font-size:11px;line-height:16px;color:${C.muted};text-align:center`,
   )}</td></tr>
 
