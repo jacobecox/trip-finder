@@ -37,7 +37,7 @@ describe("allowlist and admin", () => {
     process.env.ALLOWED_EMAILS = "admin@example.com,family@example.com";
     process.env.ADMIN_EMAILS = "admin@example.com";
     const { POST } = await import("@/app/api/flights/route");
-    expect((await POST()).status).toBe(403);
+    expect((await POST(new Request("http://x/api/flights", { method: "POST" }))).status).toBe(403);
   });
 });
 

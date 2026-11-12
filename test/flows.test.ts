@@ -391,7 +391,7 @@ describe("flight fares", () => {
         { iata: near, priceUsd: 1000, airline: "United", stops: 1, durationMin: 260 },
       ],
     });
-    expect(await fareStatus()).toMatchObject({ remaining: 1, usage: 0, cap: 240 });
+    expect(await fareStatus()).toMatchObject({ remaining: 1, refreshable: 1, usage: 0, cap: 240 });
     expect(await runFareBatch()).toMatchObject({ searched: 1, remaining: 0, usage: 1 });
     expect(searchFares).toHaveBeenCalledWith(
       expect.objectContaining({ origin: "COS,DEN", outboundDate: "2030-03-02", passengers: { adults: 2, children: 1, lapInfants: 1 } }),
@@ -405,6 +405,9 @@ describe("flight fares", () => {
     // cached: nothing to do
     expect(await runFareBatch()).toMatchObject({ searched: 0, remaining: 0 });
     expect(searchFares).toHaveBeenCalledTimes(1);
+    // a different seat count reuses it (scaled) instead of searching again
+    await db.update(settings).set({ tickets: 1 });
+    expect(await fareStatus()).toMatchObject({ remaining: 0, refreshable: 1 });
   });
 
   it("DEN: searched with COS, wins only after its drive + parking; the toggle shows either airport", async () => {
@@ -442,7 +445,8 @@ describe("flight fares", () => {
     await db.update(settings).set({ altOriginAirport: "" });
     await runFareBatch(); // saved under origin "COS"
     await db.update(settings).set({ altOriginAirport: "DEN" });
-    expect((await fareStatus()).remaining).toBe(1); // the COS,DEN search is still to do
+    // already priced (from COS), so nothing is missing; a full refresh would search COS,DEN
+    expect(await fareStatus()).toMatchObject({ remaining: 0, refreshable: 1 });
     const f = (await fareOf("Resort")) as ListingFare;
     expect(f).toMatchObject({ origin: "COS", fareUsd: 1000 });
     expect(fareFrom(f, "DEN")).toBeNull();
@@ -465,7 +469,8 @@ describe("flight fares", () => {
     await runFareBatch();
     await db.update(flightQuote).set({ fetchedAt: new Date("2020-01-01") }); // stale
     searchFares.mockRejectedValue(new Error("SerpApi 500"));
-    expect(await runFareBatch()).toMatchObject({ searched: 1, failed: 1, usage: 1 });
+    expect(await runFareBatch()).toMatchObject({ searched: 0 }); // has a fare, so not "missing"
+    expect(await runFareBatch(undefined, "refresh")).toMatchObject({ searched: 1, failed: 1, usage: 1 });
     expect(await fareOf("Resort")).toMatchObject({ fareUsd: 800 });
     const [q] = await db.select().from(flightQuote);
     expect(q).toMatchObject({ status: "ok", error: "SerpApi 500" });

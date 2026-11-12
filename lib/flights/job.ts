@@ -59,8 +59,15 @@ export async function neededSearches(s: Settings): Promise<FareSearch[]> {
   return [...out.values()].sort((a, b) => a.outboundDate.localeCompare(b.outboundDate));
 }
 
-/** Searches with no usable cached quote (missing, failed, or older than the cache window). */
-export async function staleSearches(s: Settings) {
+/**
+ * "missing": stays with no fare at all. A quote for the same airports and dates counts however old,
+ * whatever departure airports or seat count it was searched with (prices are scaled per seat), so
+ * this is what new stays need. "refresh": everything not searched exactly as the settings say now
+ * within the cache window, i.e. re-price the whole list (costs a search per trip).
+ */
+export type FareMode = "missing" | "refresh";
+
+export async function staleSearches(s: Settings, mode: FareMode = "missing") {
   const needed = await neededSearches(s);
   if (!needed.length) return [];
   const cutoff = new Date(Date.now() - s.fareCacheHours * 3600_000);
@@ -76,7 +83,12 @@ export async function staleSearches(s: Settings) {
     })
     .from(flightQuote)
     .where(inArray(flightQuote.outboundDate, [...new Set(needed.map((n) => n.outboundDate))]));
-  const fresh = new Set(quotes.filter((q) => q.status !== "failed" && q.fetchedAt >= cutoff).map(quoteKey));
+  const good = quotes.filter((q) => q.status !== "failed");
+  if (mode === "missing") {
+    const priced = new Set(good.map((q) => [q.airports, q.outboundDate, q.returnDate].join("|")));
+    return needed.filter((n) => !priced.has([n.airports.join(","), n.outboundDate, n.returnDate].join("|")));
+  }
+  const fresh = new Set(good.filter((q) => q.fetchedAt >= cutoff).map(quoteKey));
   return needed.filter(
     (n) => !fresh.has(quoteKey({ ...n, airports: n.airports.join(","), passengers: passengersKey(n.passengers) })),
   );
@@ -84,11 +96,12 @@ export async function staleSearches(s: Settings) {
 
 export async function fareStatus() {
   const s = await getSettings();
-  return { remaining: (await staleSearches(s)).length, usage: await getUsage(), cap: s.serpapiMonthlyCap };
+  const [missing, refresh, usage] = await Promise.all([staleSearches(s, "missing"), staleSearches(s, "refresh"), getUsage()]);
+  return { remaining: missing.length, refreshable: refresh.length, usage, cap: s.serpapiMonthlyCap };
 }
 
 /** Runs fare searches until the time budget or monthly cap runs out. Resumable: poll until remaining is 0. */
-export async function runFareBatch(budgetMs = 40_000) {
+export async function runFareBatch(budgetMs = 40_000, mode: FareMode = "missing") {
   const s = await getSettings();
   const db = getDb();
   const start = Date.now();
@@ -98,7 +111,7 @@ export async function runFareBatch(budgetMs = 40_000) {
   let quotaExceeded = false;
   let usage = await getUsage();
 
-  for (const q of await staleSearches(s)) {
+  for (const q of await staleSearches(s, mode)) {
     if (Date.now() - start >= budgetMs) break;
     if (usage >= s.serpapiMonthlyCap) {
       capReached = true;
@@ -147,7 +160,7 @@ export async function runFareBatch(budgetMs = 40_000) {
     failed,
     capReached,
     quotaExceeded,
-    remaining: (await staleSearches(s)).length,
+    remaining: (await staleSearches(s, mode)).length,
     usage,
     cap: s.serpapiMonthlyCap,
   };

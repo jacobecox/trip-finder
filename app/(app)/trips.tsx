@@ -100,6 +100,7 @@ export default function Trips({
       sessionStorage.setItem(LIST_KEY, `/${qs}`);
     } catch {}
   }, [qs, synced]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [more, setMore] = useState(() => !!(initial.filters.unit || initial.filters.country || initial.filters.state || initial.filters.tickets !== DEFAULTS.tickets));
   const [view, setViewState] = useState<View>("cards");
   useEffect(() => {
@@ -173,10 +174,42 @@ export default function Trips({
 
   const moreCount = [f.tickets !== DEFAULTS.tickets, f.unit, f.country, f.state].filter(Boolean).length;
   const anyFilter = JSON.stringify(f) !== JSON.stringify(DEFAULTS);
+  const activeCount =
+    (Object.keys(DEFAULTS) as (keyof Filters)[]).filter((k) => JSON.stringify(f[k]) !== JSON.stringify(DEFAULTS[k])).length +
+    (preset === 0 ? 0 : 1);
 
   return (
     <div className="space-y-4">
-      <section className="card space-y-3 p-3 sm:p-4" aria-label="Filters">
+      {/* Phones: filters fold into a bar that sticks under the header and opens as a dropdown */}
+      <div className="max-sm:sticky max-sm:top-[calc(env(safe-area-inset-top)+3.4rem)] max-sm:z-[1000]">
+      <div className="flex items-center gap-2 rounded-xl border border-line bg-surface/95 p-2 shadow-lg shadow-black/30 backdrop-blur sm:hidden">
+        <button
+          type="button"
+          className={`btn btn-secondary ${filtersOpen ? "border-accent/60 text-accent" : ""}`}
+          aria-expanded={filtersOpen}
+          onClick={() => setFiltersOpen(!filtersOpen)}
+        >
+          Filters &amp; sort
+          {activeCount > 0 && <span className="rounded-full bg-accent px-1.5 text-[11px] text-accent-ink">{activeCount}</span>}
+          <span className={`transition-transform ${filtersOpen ? "rotate-180" : ""}`}>▾</span>
+        </button>
+        <span className="text-sm">
+          <span className="font-semibold">{shown.length}</span> <span className="text-muted">of {rows.length}</span>
+        </span>
+        {anyFilter && (
+          <button className="link ml-auto text-sm" onClick={() => setF(DEFAULTS)}>
+            Clear
+          </button>
+        )}
+      </div>
+      <section
+        className={`card space-y-3 p-3 sm:p-4 ${
+          filtersOpen
+            ? "max-sm:absolute max-sm:inset-x-0 max-sm:top-full max-sm:mt-1 max-sm:max-h-[75vh] max-sm:overflow-y-auto max-sm:shadow-2xl max-sm:shadow-black/60"
+            : "max-sm:hidden"
+        }`}
+        aria-label="Filters"
+      >
         <div className="grid grid-cols-2 items-end gap-3 md:grid-cols-4 lg:grid-cols-[1fr_1fr_1fr_auto_auto]">
           <label className="block space-y-1">
             <span className="label">Sort by</span>
@@ -261,12 +294,12 @@ export default function Trips({
           <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="What changed">
             <span className="text-xs text-muted">Since the {previousList} list:</span>
             {newCount > 0 && (
-              <ChipButton active={f.newOnly} onClick={() => set({ newOnly: !f.newOnly })}>
+              <ChipButton active={f.newOnly} onClick={() => set({ newOnly: !f.newOnly, dropsOnly: false })}>
                 ✨ New <span className="text-[10px] opacity-60">{newCount}</span>
               </ChipButton>
             )}
             {dropCount > 0 && (
-              <ChipButton active={f.dropsOnly} onClick={() => set({ dropsOnly: !f.dropsOnly })}>
+              <ChipButton active={f.dropsOnly} onClick={() => set({ dropsOnly: !f.dropsOnly, newOnly: false })}>
                 ↓ Price drops <span className="text-[10px] opacity-60">{dropCount}</span>
               </ChipButton>
             )}
@@ -284,10 +317,14 @@ export default function Trips({
             </ChipButton>
           ))}
         </div>
+        <button className="btn btn-primary w-full sm:hidden" onClick={() => setFiltersOpen(false)}>
+          Show {shown.length} trip{shown.length === 1 ? "" : "s"}
+        </button>
       </section>
+      </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <p className="text-sm">
+        <p className="text-sm max-sm:hidden">
           <span className="font-semibold">{shown.length}</span> <span className="text-muted">of {rows.length} trips</span>
           {anyFilter && (
             <button className="link ml-3 text-sm" onClick={() => setF(DEFAULTS)}>
