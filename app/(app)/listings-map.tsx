@@ -111,7 +111,7 @@ export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: 
         .setPopup(new maplibregl.Popup({ offset: 20, className: "tf-popup" }).setText(`Home: ${origin.label}`))
         .addTo(m);
 
-      const hover = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10, className: "tf-popup tf-hover" });
+      const hover = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10, maxWidth: "none", className: "tf-popup tf-hover" }); // box grows to fit the one-line label
       m.on("mouseenter", "pins", (e: MapLayerMouseEvent) => {
         m.getCanvas().style.cursor = "pointer";
         const f = e.features?.[0];
