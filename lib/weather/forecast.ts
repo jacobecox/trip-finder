@@ -1,10 +1,14 @@
+import { and, eq, isNotNull } from "drizzle-orm";
+import { getDb, listing, property } from "@/lib/db";
 import type { ClimateStats } from "@/lib/db/schema";
+import { getLatestUpload } from "@/lib/queries";
 import { MAX_LOCATIONS, summarize, type DailyRows } from "./climate";
 
 /**
  * Real forecasts for stays that start within the forecast range (Open-Meteo, 16 days, free, no key).
- * Fetched when the page renders and cached for a few hours (forecasts update a few times a day),
- * so nothing is stored. One request covers up to 25 resorts.
+ * Cached for a few hours (forecasts update a few times a day), nothing stored. One request covers
+ * up to 25 resorts. Pages never wait on it: the list fetches /api/forecast after it shows, and
+ * the trip page streams it in, because Open-Meteo sometimes doesn't answer for 30s.
  */
 export const FORECAST_DAYS = 16;
 const BASE = "https://api.open-meteo.com/v1/forecast";
@@ -34,7 +38,16 @@ export function inForecastRange(s: Pick<ForecastStay, "arrivalDate" | "checkoutD
 type Series = "temperature_2m_max" | "temperature_2m_min" | "precipitation_sum" | "snowfall_sum" | "cloud_cover_mean";
 export type Daily = { time: string[] } & Partial<Record<Series, (number | null)[]>>;
 
+/** A stalled request usually succeeds when sent again, so: two short tries. */
 async function fetchForecast(places: { lat: number; lng: number }[]): Promise<Daily[]> {
+  try {
+    return await fetchForecastOnce(places);
+  } catch {
+    return fetchForecastOnce(places);
+  }
+}
+
+async function fetchForecastOnce(places: { lat: number; lng: number }[]): Promise<Daily[]> {
   const qs = new URLSearchParams({
     latitude: places.map((p) => p.lat.toFixed(3)).join(","),
     longitude: places.map((p) => p.lng.toFixed(3)).join(","),
@@ -45,8 +58,7 @@ async function fetchForecast(places: { lat: number; lng: number }[]): Promise<Da
   });
   const res = await fetch(`${BASE}?${qs}`, {
     headers: { "User-Agent": USER_AGENT },
-    // the page waits on this, so give up quickly and show typical weather instead
-    signal: AbortSignal.timeout(4_000),
+    signal: AbortSignal.timeout(5_000),
     next: { revalidate: REVALIDATE_S },
   });
   if (!res.ok) throw new Error(`Open-Meteo forecast ${res.status}`);
@@ -96,4 +108,16 @@ export async function forecastsFor(stays: ForecastStay[], today = new Date().toI
     if (f) out.set(s.id, f);
   }
   return out;
+}
+
+/** Forecasts for the current list, by listing id (only stays within range). */
+export async function currentForecasts(): Promise<Record<number, Forecast>> {
+  const upload = await getLatestUpload();
+  if (!upload) return {};
+  const rows = await getDb()
+    .select({ id: listing.id, arrivalDate: listing.arrivalDate, checkoutDate: listing.checkoutDate, lat: property.lat, lng: property.lng })
+    .from(listing)
+    .innerJoin(property, eq(property.id, listing.propertyId))
+    .where(and(eq(listing.uploadId, upload.id), isNotNull(property.lat)));
+  return Object.fromEntries(await forecastsFor(rows));
 }

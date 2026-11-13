@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cache } from "react";
+import { cache, Suspense } from "react";
 import { currentEmail } from "@/lib/auth";
 import { daysUntil, fmtCountdown, fmtHours, fmtMiles, fmtShortDate, fmtUsd, nightsBetween } from "@/lib/format";
 import { TAG_EMOJI, TAG_LABELS, type Tag } from "@/lib/tags/constants";
@@ -9,6 +9,7 @@ import { getTrip } from "@/lib/trip";
 import { Cost } from "../../trip-cards";
 import type { ClimateStats } from "@/lib/db/schema";
 import { daysOf, rainOnly, SKY, skyOf } from "@/lib/weather/climate";
+import { forecastsFor } from "@/lib/weather/forecast";
 import { ChangeBadges, flightFacts, placeLine, ScoreBadge, TravelLine, WeatherChip } from "../../travel";
 import { BackLink } from "./back-link";
 import { ShareButton } from "./share-button";
@@ -92,7 +93,9 @@ export default async function TripPage({ params }: Props) {
             {nights} nights · <span suppressHydrationWarning>{fmtCountdown(daysUntil(r.arrivalDate))}</span>
           </span>
           <span className="text-muted">🛏 {r.unitType}</span>
-          <WeatherChip r={r} nights={nights} />
+          <Suspense fallback={<WeatherChip r={r} nights={nights} />}>
+            <ForecastChip r={r} nights={nights} />
+          </Suspense>
         </div>
         <div className="grid grid-cols-3 divide-x divide-line rounded-lg bg-surface-2 text-center text-sm tabular-nums">
           <Cost label="Stay" value={fmtUsd(r.priceUsd)} />
@@ -172,11 +175,10 @@ export default async function TripPage({ params }: Props) {
         </p>
       </Section>
 
-      {r.forecast ? (
-        <WeatherSection c={r.forecast} nights={nights} typical={r.climate} arrival={r.arrivalDate} />
-      ) : (
-        r.climate && <WeatherSection c={r.climate} nights={nights} />
-      )}
+      {/* typical weather right away; the real forecast streams in when it's ready */}
+      <Suspense fallback={r.climate && <WeatherSection c={r.climate} nights={nights} />}>
+        <Weather r={r} nights={nights} />
+      </Suspense>
 
       <Section title="🎯 Things to do nearby">
         {r.tags.length === 0 ? (
@@ -216,6 +218,24 @@ export default async function TripPage({ params }: Props) {
       <OtherWeeks others={others} title="Other weeks at this resort" />
     </article>
   );
+}
+
+type WeatherRow = { id: number; lat: number | null; lng: number | null; arrivalDate: string; checkoutDate: string; climate: ClimateStats | null; forecast: ClimateStats | null };
+
+// one lookup shared by the chip and the section
+const forecastOf = cache(async (id: number, lat: number | null, lng: number | null, arrivalDate: string, checkoutDate: string) =>
+  (await forecastsFor([{ id, lat, lng, arrivalDate, checkoutDate }])).get(id) ?? null,
+);
+const withForecast = async (r: WeatherRow) => ({ ...r, forecast: await forecastOf(r.id, r.lat, r.lng, r.arrivalDate, r.checkoutDate) });
+
+async function ForecastChip({ r, nights }: { r: WeatherRow; nights: number }) {
+  return <WeatherChip r={await withForecast(r)} nights={nights} />;
+}
+
+async function Weather({ r, nights }: { r: WeatherRow; nights: number }) {
+  const w = await withForecast(r);
+  if (w.forecast) return <WeatherSection c={w.forecast} nights={nights} typical={w.climate} arrival={w.arrivalDate} />;
+  return w.climate ? <WeatherSection c={w.climate} nights={nights} /> : null;
 }
 
 /** Real forecast when the stay is within 16 days (with typical weather for comparison), else typical weather. */

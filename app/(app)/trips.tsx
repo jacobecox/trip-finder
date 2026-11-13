@@ -117,8 +117,25 @@ export default function Trips({
     } catch {}
   };
 
+  // Real forecasts arrive after the page shows (the weather service can be slow); until then
+  // the chips show typical weather.
+  const [forecasts, setForecasts] = useState<Record<number, Row["forecast"]>>({});
+  useEffect(() => {
+    let live = true;
+    fetch("/api/forecast")
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((m) => live && setForecasts(m))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+
   const ticketCount = Math.min(20, Math.max(1, Math.round(Number(f.tickets)) || scoreSettings.tickets));
-  const data = useMemo(() => raw.map((r) => ({ ...r, fare: fareFrom(r.fare, f.flyFrom) })), [raw, f.flyFrom]);
+  const data = useMemo(
+    () => raw.map((r) => ({ ...r, fare: fareFrom(r.fare, f.flyFrom), forecast: forecasts[r.id] ?? r.forecast })),
+    [raw, f.flyFrom, forecasts],
+  );
   const rows: Trip[] = useMemo(
     () => scoreListings(data, origin, { ...scoreSettings, tickets: ticketCount }),
     [data, origin, scoreSettings, ticketCount],
