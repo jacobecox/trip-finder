@@ -29,6 +29,7 @@ export interface Row {
   isNew: boolean; // not on the previous list
   priceDropUsd: number; // stay got this much cheaper since the previous list (0 = no drop)
   climate: ClimateStats | null; // typical weather for these dates (null until looked up)
+  forecast: ClimateStats | null; // real forecast, for stays starting within 16 days
 }
 
 export type Trip = Row & Scored;
@@ -66,19 +67,20 @@ export function scoreTitle(r: { costScore: number | null; activityScore: number 
 export const flightsUrl = (r: Trip) => (r.travelMode === "fly" && r.fare && "searchUrl" in r.fare ? r.fare.searchUrl : null);
 
 /** "New" and "↓ $75" tags: what changed since the previous list. */
-export function ChangeBadges({ r }: { r: Pick<Row, "isNew" | "priceDropUsd" | "priceUsd"> }) {
+/** `hint` adds hover text; cards turn it off (the whole card is a link, so hover can't show it). */
+export function ChangeBadges({ r, hint = true }: { r: Pick<Row, "isNew" | "priceDropUsd" | "priceUsd">; hint?: boolean }) {
   if (!r.isNew && !r.priceDropUsd) return null;
   return (
     <>
       {r.isNew && (
-        <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-medium text-sky-300" title="Not on the previous list">
+        <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-medium text-sky-300" title={hint ? "Not on the previous list" : undefined}>
           New
         </span>
       )}
       {r.priceDropUsd > 0 && (
         <span
           className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300"
-          title={`Stay was ${fmtUsd(r.priceUsd + r.priceDropUsd)} on the previous list`}
+          title={hint ? `Stay was ${fmtUsd(r.priceUsd + r.priceDropUsd)} on the previous list` : undefined}
         >
           ↓ {fmtUsd(r.priceDropUsd)}
         </span>
@@ -87,26 +89,39 @@ export function ChangeBadges({ r }: { r: Pick<Row, "isNew" | "priceDropUsd" | "p
   );
 }
 
-/** Hover text for the weather chip. */
-export function weatherTitle(c: ClimateStats, nights: number) {
+/** The weather to show: the real forecast when the stay is close enough, else typical weather. */
+export const weatherOf = (r: Pick<Row, "climate" | "forecast">) =>
+  r.forecast ? { c: r.forecast, isForecast: true } : r.climate ? { c: r.climate, isForecast: false } : null;
+
+/** Hover text for the weather chip. Forecast counts are out of the days the forecast reaches. */
+export function weatherTitle(c: ClimateStats, nights: number, isForecast: boolean) {
   const sky = SKY[skyOf(c)];
+  const of = isForecast ? c.days : nights;
   return [
-    `Typical for these dates (${c.years}), not a forecast: ${sky.label.toLowerCase()}`,
+    isForecast
+      ? `Forecast${c.days < nights ? ` for the first ${c.days} of ${nights} days` : ""}: ${sky.label.toLowerCase()}`
+      : `Typical for these dates (${c.years}), not a forecast: ${sky.label.toLowerCase()}`,
     `Highs around ${Math.round(c.highF)}°F, lows around ${Math.round(c.lowF)}°F`,
-    `Rain on about ${daysOf(rainOnly(c), nights)} of ${nights} days`,
-    c.snowFrac > 0.02 && `Snow on about ${daysOf(c.snowFrac, nights)} of ${nights} days`,
+    `Rain on about ${daysOf(rainOnly(c), of)} of ${of} days`,
+    c.snowFrac > 0.02 && `Snow on about ${daysOf(c.snowFrac, of)} of ${of} days`,
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-/** "⛅ 78°": the usual sky and high for the stay's dates. */
-export function WeatherChip({ c, nights }: { c: ClimateStats | null; nights: number }) {
-  if (!c) return null;
-  const sky = SKY[skyOf(c)];
+/** "⛅ 78°": the sky and high for the stay's dates; tagged when it's a real forecast. */
+export function WeatherChip({ r, nights, hint = true }: { r: Pick<Row, "climate" | "forecast">; nights: number; hint?: boolean }) {
+  const w = weatherOf(r);
+  if (!w) return null;
+  const sky = SKY[skyOf(w.c)];
   return (
-    <span className="whitespace-nowrap" title={weatherTitle(c, nights)} aria-label={`${sky.label}, highs around ${Math.round(c.highF)} degrees`}>
-      {sky.emoji} {Math.round(c.highF)}°
+    <span
+      className="inline-flex items-center gap-1 whitespace-nowrap"
+      title={hint ? weatherTitle(w.c, nights, w.isForecast) : undefined}
+      aria-label={`${w.isForecast ? "Forecast" : "Typical"}: ${sky.label}, highs around ${Math.round(w.c.highF)} degrees`}
+    >
+      {sky.emoji} {Math.round(w.c.highF)}°
+      {w.isForecast && <span className="rounded-full bg-sky-500/15 px-1.5 py-px text-[10px] font-medium text-sky-300">forecast</span>}
     </span>
   );
 }

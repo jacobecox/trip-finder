@@ -92,7 +92,7 @@ export default async function TripPage({ params }: Props) {
             {nights} nights · <span suppressHydrationWarning>{fmtCountdown(daysUntil(r.arrivalDate))}</span>
           </span>
           <span className="text-muted">🛏 {r.unitType}</span>
-          <WeatherChip c={r.climate} nights={nights} />
+          <WeatherChip r={r} nights={nights} />
         </div>
         <div className="grid grid-cols-3 divide-x divide-line rounded-lg bg-surface-2 text-center text-sm tabular-nums">
           <Cost label="Stay" value={fmtUsd(r.priceUsd)} />
@@ -172,7 +172,11 @@ export default async function TripPage({ params }: Props) {
         </p>
       </Section>
 
-      {r.climate && <WeatherSection c={r.climate} nights={nights} />}
+      {r.forecast ? (
+        <WeatherSection c={r.forecast} nights={nights} typical={r.climate} arrival={r.arrivalDate} />
+      ) : (
+        r.climate && <WeatherSection c={r.climate} nights={nights} />
+      )}
 
       <Section title="🎯 Things to do nearby">
         {r.tags.length === 0 ? (
@@ -214,17 +218,30 @@ export default async function TripPage({ params }: Props) {
   );
 }
 
-function WeatherSection({ c, nights }: { c: ClimateStats; nights: number }) {
+/** Real forecast when the stay is within 16 days (with typical weather for comparison), else typical weather. */
+function WeatherSection({
+  c,
+  nights,
+  typical,
+  arrival,
+}: {
+  c: ClimateStats;
+  nights: number;
+  typical?: ClimateStats | null;
+  arrival?: string; // set when `c` is a forecast
+}) {
+  const isForecast = arrival != null;
+  const of = isForecast ? c.days : nights;
   const sky = SKY[skyOf(c)];
   const stats = [
     { label: "High", value: `${Math.round(c.highF)}°` },
     { label: "Low", value: `${Math.round(c.lowF)}°` },
-    { label: "Rainy days", value: `${daysOf(rainOnly(c), nights)} of ${nights}` },
-    ...(c.snowFrac > 0.02 ? [{ label: "Snowy days", value: `${daysOf(c.snowFrac, nights)} of ${nights}` }] : []),
+    { label: "Rainy days", value: `${daysOf(rainOnly(c), of)} of ${of}` },
+    ...(c.snowFrac > 0.02 ? [{ label: "Snowy days", value: `${daysOf(c.snowFrac, of)} of ${of}` }] : []),
     { label: "Cloud cover", value: `${c.cloudPct}%` },
   ];
   return (
-    <Section title={`${sky.emoji} Typical weather: ${sky.label.toLowerCase()}`}>
+    <Section title={`${sky.emoji} ${isForecast ? "Forecast" : "Typical weather"}: ${sky.label.toLowerCase()}`}>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
         {stats.map((x) => (
           <div key={x.label} className="rounded-lg bg-surface-2 px-2 py-1.5 text-center">
@@ -233,9 +250,26 @@ function WeatherSection({ c, nights }: { c: ClimateStats; nights: number }) {
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted">
-        Averages for these same dates over {c.years}, not a forecast. Check the forecast closer to the trip.
-      </p>
+      {isForecast ? (
+        <p className="text-xs text-muted">
+          {c.days < nights
+            ? `The forecast reaches the first ${c.days} of ${nights} days (${fmtDay(arrival)} onward); the rest isn't forecast yet.`
+            : "Forecast for the whole stay."}{" "}
+          Updated every few hours; forecasts more than a week out can still change a lot.
+          {typical && (
+            <>
+              {" "}
+              Typical for these dates: {SKY[skyOf(typical)].emoji} {SKY[skyOf(typical)].label.toLowerCase()}, highs around{" "}
+              {Math.round(typical.highF)}°.
+            </>
+          )}
+        </p>
+      ) : (
+        <p className="text-xs text-muted">
+          Averages for these same dates over {c.years}, not a forecast. A real forecast shows up here once the trip is
+          within 16 days.
+        </p>
+      )}
     </Section>
   );
 }

@@ -43,7 +43,8 @@ export default async function GuidePage() {
           </li>
           <li>
             <b>Weather</b> (next to the dates): the usual sky and daytime high for those dates, from the last 10
-            years of weather there. Not a forecast. ☀️ sunny · ⛅ partly cloudy · ☁️ cloudy · 🌧 rainy (rain on
+            years of weather there. Trips starting within 16 days show the real forecast instead, tagged{" "}
+            <span className="text-sky-300">forecast</span>. ☀️ sunny · ⛅ partly cloudy · ☁️ cloudy · 🌧 rainy (rain on
             about half the days) · ❄️ snowy.
           </li>
           <li>
@@ -129,11 +130,12 @@ export default async function GuidePage() {
             <b>Cards</b>: the easiest to read, and best on a phone.
           </li>
           <li>
-            <b>Map</b>: one pin per resort, colored by its best trip; bigger pins have more dates. Click a pin for its
-            dates and prices.
+            <b>Map</b>: one pin per resort, colored by its best trip; bigger pins have more dates. Click a pin to open that trip, or pick
+            one of its dates when there are several.
           </li>
           <li>
-            <b>Table</b>: everything in columns on a big screen. Click a column heading to sort by it.
+            <b>Table</b>: everything in columns on a big screen. Click a row to open that trip, or a column
+            heading to sort by it.
           </li>
         </ul>
       </Section>

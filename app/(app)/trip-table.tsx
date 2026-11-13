@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtUsd, nightsBetween } from "@/lib/format";
 import { TagChips } from "./tag-chips";
 import { ChangeBadges, placeLine, ScoreBadge, scoreTitle, TravelNote, WeatherChip, type Trip } from "./travel";
@@ -42,6 +43,13 @@ export default function TripTable({
   originLabel: string;
   admin: boolean;
 }) {
+  const router = useRouter();
+  // The whole row opens the trip page, like a card; links inside the row keep working on their own.
+  const open = (e: React.MouseEvent, id: number) => {
+    if ((e.target as HTMLElement).closest("a, button") || window.getSelection()?.toString()) return;
+    if (e.metaKey || e.ctrlKey) window.open(`/trips/${id}`, "_blank");
+    else router.push(`/trips/${id}`);
+  };
   const th = (key: SortKey, label: string, cls = "") => {
     const active = sort.key === key;
     return (
@@ -78,21 +86,25 @@ export default function TripTable({
         </thead>
         <tbody>
           {trips.map((r) => (
-            <tr key={r.id} className="border-t border-line/60 align-top transition-colors hover:bg-white/[0.03]">
+            <tr
+              key={r.id}
+              onClick={(e) => open(e, r.id)}
+              className="group cursor-pointer border-t border-line/60 align-top transition-colors hover:bg-white/[0.04]"
+            >
               <td className="px-2 py-2 text-right" title={scoreTitle(r)}>
                 <ScoreBadge score={r.score} color={color(r.score)} size="sm" />
               </td>
               <td className="whitespace-nowrap px-2 py-2">
                 {fmtDate(r.arrivalDate)}
                 <span className="ml-2 text-xs text-muted">
-                  <WeatherChip c={r.climate} nights={nightsBetween(r.arrivalDate, r.checkoutDate)} />
+                  <WeatherChip r={r} nights={nightsBetween(r.arrivalDate, r.checkoutDate)} />
                 </span>
               </td>
               <td className="px-2 py-2 text-right tabular-nums text-muted" suppressHydrationWarning>
                 {daysUntil(r.arrivalDate)}d
               </td>
               <td className="px-2 py-2">
-                <Link href={`/trips/${r.id}`} className="font-medium hover:text-accent hover:underline">
+                <Link href={`/trips/${r.id}`} className="font-medium group-hover:text-accent hover:underline">
                   {r.property}
                 </Link>
                 <span className="ml-1.5 inline-flex gap-1 align-middle">

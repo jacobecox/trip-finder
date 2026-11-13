@@ -2,6 +2,7 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl, { type GeoJSONSource, type MapLayerMouseEvent } from "maplibre-gl";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fmtDate, fmtUsd } from "@/lib/format";
 import { escapeHtml, pinsFor, rampColor, rankColors, type MapListing, type Pin } from "@/lib/map";
@@ -28,22 +29,22 @@ function popupHtml(p: Pin<MapRow>) {
       ? `<a href="${escapeHtml(l.flightsUrl)}" target="_blank" rel="noreferrer" style="color:inherit;text-decoration:underline dotted">${escapeHtml(l.travelSummary)} ↗</a>`
       : escapeHtml(l.travelSummary);
   return `
-    <div style="min-width:220px;color:#111">
+    <div style="min-width:220px">
       <div style="font-weight:600">${escapeHtml(p.name)}</div>
-      <div style="color:#666;font-size:12px;margin-bottom:4px">${escapeHtml(p.location)}</div>
+      <div class="tf-muted" style="font-size:12px;margin-bottom:4px">${escapeHtml(p.location)}</div>
       <table style="font-size:12px;border-collapse:collapse;width:100%">
         ${top
           .map(
-            (l) => `<tr>
+            (l) => `<tr data-trip="${l.id}" class="tf-row">
               <td style="padding:1px 6px 1px 0;font-weight:600;text-align:right">${l.score == null ? "—" : Math.round(l.score)}</td>
-              <td style="padding:1px 6px 1px 0;white-space:nowrap"><a href="/trips/${l.id}" style="color:inherit;text-decoration:underline">${escapeHtml(fmtDate(l.arrivalDate))}</a></td>
+              <td style="padding:1px 6px 1px 0;white-space:nowrap"><a href="/trips/${l.id}" style="color:inherit">${escapeHtml(fmtDate(l.arrivalDate))}</a></td>
               <td style="padding:1px 6px 1px 0;text-align:right">${escapeHtml(fmtUsd(l.totalUsd))}</td>
-              <td style="padding:1px 0;color:#666;white-space:nowrap">${travel(l)}</td>
+              <td class="tf-muted" style="padding:1px 0;white-space:nowrap">${travel(l)}</td>
             </tr>`,
           )
           .join("")}
       </table>
-      ${more > 0 ? `<div style="color:#666;font-size:12px">+${more} more dates</div>` : ""}
+      ${more > 0 ? `<div class="tf-muted" style="font-size:12px">+${more} more dates</div>` : ""}
     </div>`;
 }
 
@@ -55,6 +56,11 @@ export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: 
   const pins = useMemo(() => pinsFor(rows), [rows]);
   const colors = useMemo(() => rankColors(pins), [pins]);
   const pinsRef = useRef(pins);
+  const router = useRouter();
+  const routerRef = useRef(router);
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
 
   useEffect(() => {
     if (!el.current || map.current) return;
@@ -102,10 +108,10 @@ export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: 
       });
       new maplibregl.Marker({ color: "#facc15", scale: 0.7 })
         .setLngLat([origin.lng, origin.lat])
-        .setPopup(new maplibregl.Popup({ offset: 20 }).setText(`Home: ${origin.label}`))
+        .setPopup(new maplibregl.Popup({ offset: 20, className: "tf-popup" }).setText(`Home: ${origin.label}`))
         .addTo(m);
 
-      const hover = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
+      const hover = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10, className: "tf-popup tf-hover" });
       m.on("mouseenter", "pins", (e: MapLayerMouseEvent) => {
         m.getCanvas().style.cursor = "pointer";
         const f = e.features?.[0];
@@ -119,7 +125,19 @@ export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: 
         const p = pinsRef.current[Number(e.features?.[0]?.properties.i)];
         if (!p) return;
         hover.remove();
-        new maplibregl.Popup({ maxWidth: "380px" }).setLngLat([p.lng, p.lat]).setHTML(popupHtml(p)).addTo(m);
+        // one date: straight to its page, like a card; several: pick a date
+        if (p.listings.length === 1) return routerRef.current.push(`/trips/${p.listings[0].id}`);
+        const popup = new maplibregl.Popup({ maxWidth: "380px", className: "tf-popup" })
+          .setLngLat([p.lng, p.lat])
+          .setHTML(popupHtml(p))
+          .addTo(m);
+        popup.getElement().addEventListener("click", (ev) => {
+          const t = ev.target as HTMLElement;
+          const row = t.closest<HTMLElement>("[data-trip]");
+          if (!row || t.closest("a[target=_blank]")) return;
+          ev.preventDefault();
+          routerRef.current.push(`/trips/${row.dataset.trip}`);
+        });
       });
       setReady(true);
     });
@@ -145,7 +163,7 @@ export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: 
           i,
           color: colors[i],
           radius: 7 + Math.min(5, p.listings.length - 1),
-          label: `${p.name} · ${p.bestScore == null ? "—" : Math.round(p.bestScore)}`,
+          label: `${p.name} · ${p.listings.length === 1 ? "1 date" : `${p.listings.length} dates`}`,
         },
       })),
     });

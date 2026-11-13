@@ -55,17 +55,15 @@ function TripCard({
   return (
     <article className="card group relative flex min-w-0 flex-col gap-3 p-4 transition-colors hover:border-accent/40 has-[a:focus-visible]:border-accent">
       <header className="flex items-start gap-3">
-        <span title={`Score ${r.score == null ? "not available yet" : Math.round(r.score)} out of 100`}>
-          <ScoreBadge score={r.score} color={color} size="lg" />
-        </span>
+        <ScoreBadge score={r.score} color={color} size="lg" />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-semibold leading-snug transition-colors group-hover:text-accent" title={r.property}>
+          <h3 className="truncate font-semibold leading-snug transition-colors group-hover:text-accent">
             {/* the link covers the whole card; the Google Flights link sits above it */}
             <Link href={`/trips/${r.id}`} className="after:absolute after:inset-0 after:rounded-[inherit] focus:outline-none">
               {r.property}
             </Link>
           </h3>
-          <p className="truncate text-sm text-muted" title={placeLine(r)}>
+          <p className="truncate text-sm text-muted">
             {placeLine(r)}
           </p>
         </div>
@@ -76,7 +74,7 @@ function TripCard({
       </header>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        <ChangeBadges r={r} />
+        <ChangeBadges r={r} hint={false} />
         <span>
           📅 {fmtShortDate(r.arrivalDate)} – {fmtShortDate(r.checkoutDate)}
         </span>
@@ -84,7 +82,7 @@ function TripCard({
           {nights} nights · <span suppressHydrationWarning>{fmtCountdown(daysUntil(r.arrivalDate))}</span>
         </span>
         <span className="text-muted">🛏 {r.unitType}</span>
-        <WeatherChip c={r.climate} nights={nights} />
+        <WeatherChip r={r} nights={nights} hint={false} />
       </div>
 
       <div className="grid grid-cols-3 divide-x divide-line rounded-lg bg-surface-2 text-center text-sm tabular-nums">
@@ -97,7 +95,7 @@ function TripCard({
         <TravelLine r={r} home={home} />
       </div>
 
-      <TagChips tags={r.tags} untagged={r.untagged} max={3} highlight={activity} />
+      <TagChips tags={r.tags} untagged={r.untagged} max={3} highlight={activity} hint={false} />
 
       <div className="mt-auto flex justify-end text-xs font-medium text-muted transition-colors group-hover:text-accent">
         Full details ›

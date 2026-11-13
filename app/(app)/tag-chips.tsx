@@ -10,7 +10,9 @@ export function TagChips({
   untagged,
   max,
   highlight,
+  hint = true,
 }: {
+  hint?: boolean; // hover text (off on cards, where the whole card is a link)
   tags: Tag[];
   untagged?: boolean;
   max?: number;
@@ -27,14 +29,14 @@ export function TagChips({
         </span>
       ))}
       {rest.length > 0 && (
-        <span className="chip text-muted" title={rest.map(tagDisplay).join(", ")}>
+        <span className="chip text-muted" title={hint ? rest.map(tagDisplay).join(", ") : undefined}>
           +{rest.length} more
         </span>
       )}
       {untagged && (
         <span
           className="chip bg-amber-500/15 text-amber-200"
-          title="Nearby activities haven't been checked yet, or none were found."
+          title={hint ? "Nearby activities haven't been checked yet, or none were found." : undefined}
         >
           activities unknown
         </span>

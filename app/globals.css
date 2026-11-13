@@ -82,3 +82,49 @@ body {
     @apply text-xs font-medium text-muted;
   }
 }
+
+/* Map popups in the app's dark theme (MapLibre's default is white, which hid our light text). */
+.tf-popup .maplibregl-popup-content {
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.45);
+  padding: 0.6rem 0.75rem;
+}
+.tf-popup.tf-hover .maplibregl-popup-content {
+  padding: 0.3rem 0.55rem;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tf-popup .maplibregl-popup-close-button {
+  color: var(--muted);
+  font-size: 18px;
+  padding: 0 6px;
+}
+.tf-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.tf-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.tf-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+  border-bottom-color: var(--surface-2);
+}
+.tf-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.tf-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.tf-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+  border-top-color: var(--surface-2);
+}
+.tf-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: var(--surface-2);
+}
+.tf-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: var(--surface-2);
+}
+.tf-popup .tf-muted {
+  color: var(--muted);
+}
+.tf-popup .tf-row {
+  cursor: pointer;
+}
+.tf-popup .tf-row:hover td {
+  color: var(--accent);
+}
