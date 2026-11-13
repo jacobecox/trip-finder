@@ -234,3 +234,31 @@ export interface PersonalPrefs {
   flightBaseUsd: number;
   flightPerMileUsd: number;
 }
+
+/**
+ * Typical weather for one stay's calendar dates at one resort: the same dates in each of the last
+ * 10 years (Open-Meteo historical archive). Keyed by month-day, so next year's lists reuse it.
+ */
+export const stayClimate = pgTable(
+  "stay_climate",
+  {
+    propertyId: integer("property_id")
+      .notNull()
+      .references(() => property.id, { onDelete: "cascade" }),
+    startMd: text("start_md").notNull(), // "12-05" (arrival)
+    nights: integer("nights").notNull(),
+    stats: jsonb("stats").$type<ClimateStats>().notNull(),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("stay_climate_key").on(t.propertyId, t.startMd, t.nights)],
+);
+
+export interface ClimateStats {
+  highF: number; // average daily high
+  lowF: number; // average daily low
+  rainFrac: number; // share of days with ≥ 1 mm of precipitation
+  snowFrac: number; // share of days with ≥ 1 cm of snowfall
+  cloudPct: number; // average cloud cover
+  days: number; // days of data behind it (nights × years)
+  years: string; // "2016–2025"
+}

@@ -1,4 +1,6 @@
 import { fmtDate, fmtHours, fmtMinutes, fmtUsd } from "@/lib/format";
+import type { ClimateStats } from "@/lib/db/schema";
+import { daysOf, rainOnly, SKY, skyOf } from "@/lib/weather/climate";
 import type { FareInfo } from "@/lib/flights/fares";
 import { originCost } from "@/lib/flights/pick";
 import type { Scored } from "@/lib/scoring";
@@ -26,6 +28,7 @@ export interface Row {
   fare: FareInfo;
   isNew: boolean; // not on the previous list
   priceDropUsd: number; // stay got this much cheaper since the previous list (0 = no drop)
+  climate: ClimateStats | null; // typical weather for these dates (null until looked up)
 }
 
 export type Trip = Row & Scored;
@@ -81,6 +84,30 @@ export function ChangeBadges({ r }: { r: Pick<Row, "isNew" | "priceDropUsd" | "p
         </span>
       )}
     </>
+  );
+}
+
+/** Hover text for the weather chip. */
+export function weatherTitle(c: ClimateStats, nights: number) {
+  const sky = SKY[skyOf(c)];
+  return [
+    `Typical for these dates (${c.years}), not a forecast: ${sky.label.toLowerCase()}`,
+    `Highs around ${Math.round(c.highF)}°F, lows around ${Math.round(c.lowF)}°F`,
+    `Rain on about ${daysOf(rainOnly(c), nights)} of ${nights} days`,
+    c.snowFrac > 0.02 && `Snow on about ${daysOf(c.snowFrac, nights)} of ${nights} days`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** "⛅ 78°": the usual sky and high for the stay's dates. */
+export function WeatherChip({ c, nights }: { c: ClimateStats | null; nights: number }) {
+  if (!c) return null;
+  const sky = SKY[skyOf(c)];
+  return (
+    <span className="whitespace-nowrap" title={weatherTitle(c, nights)} aria-label={`${sky.label}, highs around ${Math.round(c.highF)} degrees`}>
+      {sky.emoji} {Math.round(c.highF)}°
+    </span>
   );
 }
 

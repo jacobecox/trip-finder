@@ -22,6 +22,10 @@ vi.mock("@/lib/geo/nominatim", () => ({
 vi.mock("@/lib/geo/ors", async (orig) => ({ ...(await orig<object>()), driveRoute: vi.fn(), driveMatrix: vi.fn() }));
 vi.mock("@/lib/geo/osrm", () => ({ osrmMatrix: vi.fn(), osrmRoute: vi.fn() }));
 vi.mock("@/lib/flights/serpapi", async (orig) => ({ ...(await orig<object>()), searchFares: vi.fn() }));
+vi.mock("@/lib/weather/climate", async (orig) => ({
+  ...(await orig<object>()),
+  fetchDaily: async (places: unknown[]) => places.map(() => ({ high: [75], low: [55], precipMm: [0], snowCm: [0], cloud: [20] })),
+}));
 
 const parsePdf = vi.mocked((await import("@/lib/parser/extract")).parsePdf);
 const sendEmail = vi.mocked((await import("@/lib/email/send")).sendEmail);

@@ -7,7 +7,9 @@ import { daysUntil, fmtCountdown, fmtHours, fmtMiles, fmtShortDate, fmtUsd, nigh
 import { TAG_EMOJI, TAG_LABELS, type Tag } from "@/lib/tags/constants";
 import { getTrip } from "@/lib/trip";
 import { Cost } from "../../trip-cards";
-import { ChangeBadges, flightFacts, placeLine, ScoreBadge, TravelLine } from "../../travel";
+import type { ClimateStats } from "@/lib/db/schema";
+import { daysOf, rainOnly, SKY, skyOf } from "@/lib/weather/climate";
+import { ChangeBadges, flightFacts, placeLine, ScoreBadge, TravelLine, WeatherChip } from "../../travel";
 import { BackLink } from "./back-link";
 import { ShareButton } from "./share-button";
 
@@ -90,6 +92,7 @@ export default async function TripPage({ params }: Props) {
             {nights} nights · <span suppressHydrationWarning>{fmtCountdown(daysUntil(r.arrivalDate))}</span>
           </span>
           <span className="text-muted">🛏 {r.unitType}</span>
+          <WeatherChip c={r.climate} nights={nights} />
         </div>
         <div className="grid grid-cols-3 divide-x divide-line rounded-lg bg-surface-2 text-center text-sm tabular-nums">
           <Cost label="Stay" value={fmtUsd(r.priceUsd)} />
@@ -169,6 +172,8 @@ export default async function TripPage({ params }: Props) {
         </p>
       </Section>
 
+      {r.climate && <WeatherSection c={r.climate} nights={nights} />}
+
       <Section title="🎯 Things to do nearby">
         {r.tags.length === 0 ? (
           <p className="text-muted">
@@ -206,6 +211,32 @@ export default async function TripPage({ params }: Props) {
 
       <OtherWeeks others={others} title="Other weeks at this resort" />
     </article>
+  );
+}
+
+function WeatherSection({ c, nights }: { c: ClimateStats; nights: number }) {
+  const sky = SKY[skyOf(c)];
+  const stats = [
+    { label: "High", value: `${Math.round(c.highF)}°` },
+    { label: "Low", value: `${Math.round(c.lowF)}°` },
+    { label: "Rainy days", value: `${daysOf(rainOnly(c), nights)} of ${nights}` },
+    ...(c.snowFrac > 0.02 ? [{ label: "Snowy days", value: `${daysOf(c.snowFrac, nights)} of ${nights}` }] : []),
+    { label: "Cloud cover", value: `${c.cloudPct}%` },
+  ];
+  return (
+    <Section title={`${sky.emoji} Typical weather: ${sky.label.toLowerCase()}`}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
+        {stats.map((x) => (
+          <div key={x.label} className="rounded-lg bg-surface-2 px-2 py-1.5 text-center">
+            <div className="text-[11px] text-muted">{x.label}</div>
+            <div className="font-medium tabular-nums">{x.value}</div>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted">
+        Averages for these same dates over {c.years}, not a forecast. Check the forecast closer to the trip.
+      </p>
+    </Section>
   );
 }
 

@@ -2,6 +2,8 @@ import { and, desc, eq, lt, ne, sql } from "drizzle-orm";
 import { getDb, listing, listingsUpload, property, propertyTag, settings } from "@/lib/db";
 import { effectiveTags, isUntagged, type TagRow } from "@/lib/tags/effective";
 import { airportsByProperty, faresFor } from "@/lib/flights/fares";
+import { nightsBetween } from "@/lib/format";
+import { climateMap } from "@/lib/weather/job";
 
 async function tagRowsByProperty() {
   const rows = await getDb()
@@ -81,7 +83,12 @@ export async function getCurrentListings() {
     .innerJoin(property, eq(listing.propertyId, property.id))
     .where(eq(listing.uploadId, upload.id))
     .orderBy(listing.arrivalDate, listing.id);
-  const [tagMap, s, prev] = await Promise.all([tagRowsByProperty(), getSettings(), previousList(upload)]);
+  const [tagMap, s, prev, climate] = await Promise.all([
+    tagRowsByProperty(),
+    getSettings(),
+    previousList(upload),
+    climateMap(),
+  ]);
   const fares = await faresFor(rows, s);
   return {
     upload,
@@ -96,6 +103,7 @@ export async function getCurrentListings() {
         fare: fares.get(r) ?? null,
         isNew: !!prev && before == null,
         priceDropUsd: before != null && before > r.priceUsd ? before - r.priceUsd : 0,
+        climate: climate.get(`${r.propertyId}|${r.arrivalDate.slice(5)}|${nightsBetween(r.arrivalDate, r.checkoutDate)}`) ?? null,
       };
     }),
   };

@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { getDb, listingsUpload } from "@/lib/db";
 import { countPending, runGeocodeBatch } from "@/lib/geo/geocode-job";
 import { fareStatus, runFareBatch } from "@/lib/flights/job";
+import { climateNeeded, runClimateBatch } from "@/lib/weather/job";
 import { getLatestUpload } from "@/lib/queries";
 import { buildDigest } from "@/lib/digest";
 import { sendEmail } from "@/lib/email/send";
@@ -17,13 +18,14 @@ export interface PipelineResult {
   autoPrice: "done" | "running" | "skipped-not-enough-searches" | "waiting-for-locations" | "nothing-to-price";
   progressed: boolean;
   digest: "sent" | "already-sent" | "not-email" | "waiting" | "failed" | "none";
+  climateRemaining: number;
   moreWork: boolean;
 }
 
 /**
  * Background processing for the newest upload, resumable across calls: locate + tag new
- * properties, price flights when this month's searches cover all of them, then email the
- * top picks once (email imports only).
+ * properties, price flights when this month's searches cover all of them, email the
+ * top picks once (email imports only), then look up typical weather.
  */
 export async function processPending(budgetMs: number): Promise<PipelineResult> {
   const deadline = Date.now() + budgetMs;
@@ -59,13 +61,30 @@ export async function processPending(budgetMs: number): Promise<PipelineResult> 
   const ready = geocodeRemaining === 0 && autoPrice !== "running";
   const digest = await maybeSendDigest({ ready, geocodeRemaining, fareRemaining: fares.remaining, autoPrice });
 
+  // 4. typical weather (after the email, which doesn't need it). Stops early on Open-Meteo's rate
+  // limit; the next run picks up where this left off.
+  let climateRemaining = 0;
+  if (geocodeRemaining === 0) {
+    for (;;) {
+      if (left() <= 5_000) {
+        climateRemaining = (await climateNeeded()).length;
+        break;
+      }
+      const r = await runClimateBatch(Math.min(BATCH_MS, left()));
+      climateRemaining = r.remaining;
+      if (r.saved > 0) progressed = true;
+      if (r.remaining === 0 || r.rateLimited || r.saved === 0) break;
+    }
+  }
+
   return {
     geocodeRemaining,
     fareRemaining: fares.remaining,
     autoPrice,
     progressed,
     digest,
-    moreWork: geocodeRemaining > 0 || autoPrice === "running",
+    climateRemaining,
+    moreWork: geocodeRemaining > 0 || autoPrice === "running" || climateRemaining > 0,
   };
 }
 

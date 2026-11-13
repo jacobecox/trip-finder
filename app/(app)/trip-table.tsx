@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtUsd } from "@/lib/format";
+import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtUsd, nightsBetween } from "@/lib/format";
 import { TagChips } from "./tag-chips";
-import { ChangeBadges, placeLine, ScoreBadge, scoreTitle, TravelNote, type Trip } from "./travel";
+import { ChangeBadges, placeLine, ScoreBadge, scoreTitle, TravelNote, WeatherChip, type Trip } from "./travel";
 
 export type SortKey =
   | "score"
@@ -82,7 +82,12 @@ export default function TripTable({
               <td className="px-2 py-2 text-right" title={scoreTitle(r)}>
                 <ScoreBadge score={r.score} color={color(r.score)} size="sm" />
               </td>
-              <td className="whitespace-nowrap px-2 py-2">{fmtDate(r.arrivalDate)}</td>
+              <td className="whitespace-nowrap px-2 py-2">
+                {fmtDate(r.arrivalDate)}
+                <span className="ml-2 text-xs text-muted">
+                  <WeatherChip c={r.climate} nights={nightsBetween(r.arrivalDate, r.checkoutDate)} />
+                </span>
+              </td>
               <td className="px-2 py-2 text-right tabular-nums text-muted" suppressHydrationWarning>
                 {daysUntil(r.arrivalDate)}d
               </td>

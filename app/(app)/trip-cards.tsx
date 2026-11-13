@@ -5,7 +5,7 @@ import { useState } from "react";
 import { daysUntil, fmtCountdown, fmtShortDate, fmtUsd, nightsBetween } from "@/lib/format";
 import type { Tag } from "@/lib/tags/constants";
 import { TagChips } from "./tag-chips";
-import { ChangeBadges, placeLine, ScoreBadge, TravelLine, type Trip } from "./travel";
+import { ChangeBadges, placeLine, ScoreBadge, TravelLine, WeatherChip, type Trip } from "./travel";
 
 const PAGE = 48;
 
@@ -84,6 +84,7 @@ function TripCard({
           {nights} nights · <span suppressHydrationWarning>{fmtCountdown(daysUntil(r.arrivalDate))}</span>
         </span>
         <span className="text-muted">🛏 {r.unitType}</span>
+        <WeatherChip c={r.climate} nights={nights} />
       </div>
 
       <div className="grid grid-cols-3 divide-x divide-line rounded-lg bg-surface-2 text-center text-sm tabular-nums">

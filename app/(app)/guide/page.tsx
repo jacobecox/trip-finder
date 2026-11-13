@@ -42,6 +42,11 @@ export default async function GuidePage() {
             yourself.
           </li>
           <li>
+            <b>Weather</b> (next to the dates): the usual sky and daytime high for those dates, from the last 10
+            years of weather there. Not a forecast. ☀️ sunny · ⛅ partly cloudy · ☁️ cloudy · 🌧 rainy (rain on
+            about half the days) · ❄️ snowy.
+          </li>
+          <li>
             <b>Activity chips</b>: what&apos;s nearby (beach, theme parks, zoo…).
           </li>
           <li>
