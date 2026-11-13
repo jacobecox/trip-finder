@@ -7,7 +7,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "Trip Finder",
-  description: "Ranks the monthly resort availability list by cost and things to do",
+  description: "Ranks the resort availability list by cost and things to do",
   robots: { index: false, follow: false },
   appleWebApp: { capable: true, title: "Trips", statusBarStyle: "black-translucent" },
 };

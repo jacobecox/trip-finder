@@ -19,7 +19,7 @@ export default async function GuidePage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">How Trip Finder works</h1>
         <p className="mt-1 text-muted">
-          Every month the resort exchange sends a list of week-long stays that are open. This site ranks them so the
+          Every week or so the resort exchange sends a list of week-long stays that are still open. This site ranks them so the
           good ones are easy to spot.
         </p>
       </header>
@@ -150,7 +150,10 @@ export default async function GuidePage() {
           <li>
             Booking happens through the exchange, not here. This site only helps pick which week to ask for.
           </li>
-          <li>A new list arrives about once a month, and the page updates on its own.</li>
+          <li>
+            A new list arrives every week or so, and the page updates on its own. Stays get booked and fill up, so a
+            trip on an older list may be gone.
+          </li>
         </ul>
       </Section>
 
@@ -158,7 +161,7 @@ export default async function GuidePage() {
         <Section icon="🛠" title="Admin (only you see this)">
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
-              Forward the monthly email to trips@ (or use{" "}
+              Forward the exchange&apos;s email to trips@ (or use{" "}
               <Link className="link" href="/upload">
                 Upload
               </Link>

@@ -9,6 +9,7 @@ import { tagDisplay } from "@/lib/tags/constants";
 import type { listingsUpload } from "@/lib/db";
 
 export interface Pick {
+  id?: number; // listing id, for the trip page link
   property: string;
   location: string;
   arrivalDate: string;
@@ -26,6 +27,15 @@ export interface Pick {
   altNote: string | null; // "from DEN: $1,450 for flights (+$210)"
   moreDates: number; // other dates at the same resort in the list
   tags: string[]; // "🏖️ Beach", …
+  isNew?: boolean; // not on the previous list
+  priceDropUsd?: number; // stay got this much cheaper since the previous list
+}
+
+/** What changed since the previous list (null for the first list). */
+export interface Changes {
+  since: string; // "11/3/2026"
+  newStays: number;
+  drops: number;
 }
 
 export interface DigestInput {
@@ -39,6 +49,7 @@ export interface DigestInput {
   geocodeRemaining: number;
   fareRemaining: number;
   autoPrice: string;
+  changes?: Changes | null;
   now?: Date;
 }
 
@@ -62,7 +73,7 @@ function travelText(
 
 /** Best trip at each of the top resorts (future dates only), same scoring and colors as the listings page. */
 export async function topPicks(n = 10) {
-  const [{ rows }, s] = await Promise.all([getCurrentListings(), getSettings()]);
+  const [{ rows, previous }, s] = await Promise.all([getCurrentListings(), getSettings()]);
   const today = new Date().toISOString().slice(0, 10);
   const future = rows.filter((r) => r.arrivalDate >= today);
   const scored = scoreListings(future, { lat: s.originLat, lng: s.originLng }, s)
@@ -88,6 +99,7 @@ export async function topPicks(n = 10) {
       }
     }
     picks.push({
+      id: r.id,
       property: r.property,
       location: [r.city, r.state, r.country].filter(Boolean).join(", "),
       arrivalDate: r.arrivalDate,
@@ -105,6 +117,8 @@ export async function topPicks(n = 10) {
       altNote,
       moreDates: list.length - 1,
       tags: r.tags.map(tagDisplay),
+      isNew: r.isNew,
+      priceDropUsd: r.priceDropUsd,
     });
   }
   const dates = future.map((r) => r.arrivalDate).sort();
@@ -115,8 +129,27 @@ export async function topPicks(n = 10) {
     resortCount: new Set(rows.map((r) => r.propertyId)).size,
     firstDate: dates[0] ?? null,
     lastDate: checkouts.at(-1) ?? null,
+    changes: previous
+      ? {
+          since: listDateOf(previous.filename),
+          newStays: rows.filter((r) => r.isNew).length,
+          drops: rows.filter((r) => r.priceDropUsd > 0).length,
+        }
+      : null,
   };
 }
+
+/** "Since the 11/3/2026 list: 16 new stays · 34 price drops" */
+export function changesLine(c: Changes | null | undefined) {
+  if (!c) return null;
+  const parts = [
+    c.newStays ? `${c.newStays} new stay${c.newStays > 1 ? "s" : ""}` : null,
+    c.drops ? `${c.drops} price drop${c.drops > 1 ? "s" : ""}` : null,
+  ].filter(Boolean);
+  return `Since the ${c.since} list: ${parts.length ? parts.join(" · ") : "no new stays or price drops"}`;
+}
+
+const tripUrl = (d: DigestInput, p: Pick) => (p.id == null ? d.appUrl : `${d.appUrl}/trips/${p.id}`);
 
 function statusLines(d: DigestInput) {
   const out: string[] = [];
@@ -148,6 +181,8 @@ const C = {
   accent: "#facc15",
   accentInk: "#1c1600",
   amber: "#fde68a",
+  sky: "#7dd3fc",
+  green: "#6ee7b7",
 };
 const solid = (c: string) => `background-color:${c};background-image:linear-gradient(${c},${c})`;
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
@@ -234,8 +269,17 @@ function cardHtml(p: Pick, i: number, d: DigestInput) {
           </tr></table>
         </td>
         <td valign="top">
-          ${tx(`#${i + 1}`, `font-size:11px;line-height:14px;color:${C.muted}`)}
-          ${tx(e(p.property), `font-size:16px;line-height:21px;font-weight:600;color:${C.ink}`)}
+          ${tx(
+            `#${i + 1}${
+              p.isNew
+                ? `&nbsp;&nbsp;<span style="color:${C.sky}">New</span>`
+                : p.priceDropUsd
+                  ? `&nbsp;&nbsp;<span style="color:${C.green}">↓ ${e(fmtUsd(p.priceDropUsd))} cheaper</span>`
+                  : ""
+            }`,
+            `font-size:11px;line-height:14px;color:${C.muted}`,
+          )}
+          <a href="${e(tripUrl(d, p))}" style="text-decoration:none">${tx(e(p.property), `font-size:16px;line-height:21px;font-weight:600;color:${C.ink}`)}</a>
           ${tx(e(p.location), `font-size:13px;line-height:18px;color:${C.muted}`)}
         </td>
         <td valign="top" align="right" style="padding-left:8px;white-space:nowrap">
@@ -306,17 +350,20 @@ export function renderDigest(d: DigestInput) {
     .filter(Boolean)
     .join(" ");
 
+  const changes = changesLine(d.changes);
   const text = [
     `${summary}, from ${d.filename}.`,
+    ...(changes ? [`${changes}.`] : []),
     ...status,
     "",
     ...d.picks.map((p, i) =>
       [
-        `${i + 1}. ${p.property} (${p.location}) · score ${Math.round(p.score)}`,
+        `${i + 1}. ${p.property} (${p.location}) · score ${Math.round(p.score)}${p.isNew ? " · NEW" : p.priceDropUsd ? ` · ${fmtUsd(p.priceDropUsd)} cheaper` : ""}`,
         `   ${fmtDate(p.arrivalDate)} – ${fmtDate(p.checkoutDate)} · ${p.unitType}`,
         `   stay ${fmtUsd(p.lodgingUsd)} + ${p.travelMode === "drive" ? "gas" : "flights"} ${fmtUsd(p.travelUsd)}${p.estimate ? " (estimate)" : ""} = ${fmtUsd(p.totalUsd)}`,
         `   ${p.travel}${p.altNote ? ` · ${p.altNote}` : ""}${p.moreDates ? ` · +${p.moreDates} more dates` : ""}`,
         p.tags.length ? `   ${p.tags.join(", ")}` : "",
+        p.id != null ? `   details: ${tripUrl(d, p)}` : "",
         p.flightsUrl ? `   flights: ${p.flightsUrl}` : "",
       ]
         .filter(Boolean)
@@ -358,13 +405,14 @@ ${GMAIL_CSS}</style>
 
   <tr><td style="padding:0 4px 16px">
     ${tx(
-      d.picks.length ? `This month&rsquo;s top ${d.picks.length}` : "New list imported",
+      d.picks.length ? `Top ${d.picks.length} picks` : "New list imported",
       `font-size:24px;line-height:30px;font-weight:700;color:${C.ink}`,
     )}
     <div style="padding-top:4px">${tx(
       `${e(summary)}. The best trip at each resort, ranked by cost and things to do nearby.`,
       `font-size:14px;line-height:20px;color:${C.muted}`,
     )}</div>
+    ${changes ? `<div style="padding-top:8px">${tx(e(changes), `font-size:13px;line-height:18px;color:${C.ink}`)}</div>` : ""}
     ${status.map((s) => `<div style="padding-top:8px">${tx(`ⓘ ${e(s)}`, `font-size:12px;line-height:17px;color:${C.muted}`)}</div>`).join("")}
   </td></tr>
 

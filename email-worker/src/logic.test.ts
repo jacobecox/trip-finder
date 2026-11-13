@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decide, parseList, safeEqual } from "./logic";
+import { decide, digestRecipients, parseList, safeEqual } from "./logic";
 
 const me = "me@gmail.com";
 const allowed = parseList(` ${me.toUpperCase()} , `);
@@ -42,5 +42,16 @@ describe("safeEqual", () => {
     expect(safeEqual("abd", "abc")).toBe(false);
     expect(safeEqual("ab", "abc")).toBe(false);
     expect(safeEqual("", "")).toBe(false);
+  });
+});
+
+describe("digestRecipients", () => {
+  it("sends to you first, then family, without repeats", () => {
+    expect(digestRecipients("Me@gmail.com", " wife@example.com, ME@gmail.com ,, bro@example.com")).toEqual([
+      "me@gmail.com",
+      "wife@example.com",
+      "bro@example.com",
+    ]);
+    expect(digestRecipients("me@gmail.com", undefined)).toEqual(["me@gmail.com"]);
   });
 });

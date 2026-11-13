@@ -45,7 +45,8 @@ async function fetchForecast(places: { lat: number; lng: number }[]): Promise<Da
   });
   const res = await fetch(`${BASE}?${qs}`, {
     headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(10_000),
+    // the page waits on this, so give up quickly and show typical weather instead
+    signal: AbortSignal.timeout(4_000),
     next: { revalidate: REVALIDATE_S },
   });
   if (!res.ok) throw new Error(`Open-Meteo forecast ${res.status}`);

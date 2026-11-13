@@ -2,12 +2,14 @@
 #   wrangler secret put EMAIL_SECRET     # same value as EMAIL_SECRET on Vercel
 #   wrangler secret put FORWARD_TO       # your verified Email Routing destination address
 #   wrangler secret put ALLOWED_SENDERS  # comma-separated senders allowed to import
+#   wrangler secret put FAMILY_TO        # optional, comma-separated: also get the top-picks email
+#                                        # (verify each under Email Routing > Destination addresses first)
 name = "trip-finder-email"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
-# no destination_address: may send to any verified Email Routing destination; the code always uses FORWARD_TO
+# no destination_address: may send to any verified Email Routing destination; the code sends to FORWARD_TO and FAMILY_TO
 send_email = [{ name = "EMAIL" }]
 
 [vars]

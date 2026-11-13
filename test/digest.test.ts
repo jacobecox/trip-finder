@@ -93,3 +93,25 @@ describe("previewText", () => {
     expect(previewText({ ...base, picks: [] })).toBe("205 new stays imported. Open Trip Finder to see them.");
   });
 });
+
+describe("what changed since the previous list", () => {
+  it("summarizes new stays and price drops, tags picks and links each to its trip page", () => {
+    const { html, text } = renderDigest({
+      ...base,
+      changes: { since: "11/3/2026", newStays: 16, drops: 34 },
+      picks: [pick({ id: 440, isNew: true }), pick({ id: 441, priceDropUsd: 75, property: "Snow Lake" })],
+    });
+    expect(text).toContain("Since the 11/3/2026 list: 16 new stays · 34 price drops.");
+    expect(html).toContain("Since the 11/3/2026 list: 16 new stays · 34 price drops");
+    expect(html).toContain('href="https://trips.example.test/trips/440"');
+    expect(html).toContain(">New</span>");
+    expect(html).toContain("↓ $75 cheaper");
+    expect(text).toContain("1. Sand <Pebbles> (Solana Beach, CA, United States) · score 91 · NEW");
+    expect(text).toContain("details: https://trips.example.test/trips/441");
+    expect(html).toContain("Top 2 picks");
+  });
+
+  it("leaves the line out for the first list", () => {
+    expect(renderDigest({ ...base, picks: [pick()] }).text).not.toContain("Since the");
+  });
+});

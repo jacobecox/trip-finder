@@ -26,12 +26,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         {admin ? (
           <p className="text-sm text-muted">
             <Link className="link" href="/upload">
-              Upload this month&apos;s PDF
+              Upload the latest PDF
             </Link>{" "}
             or forward the email to trips@ to get started.
           </p>
         ) : (
-          <p className="text-sm text-muted">This month&apos;s list hasn&apos;t been added yet. Check back soon.</p>
+          <p className="text-sm text-muted">No list has been added yet. Check back soon.</p>
         )}
       </div>
     );
@@ -41,7 +41,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">This month&apos;s trips</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Available trips</h1>
           <p className="mt-1 text-sm text-muted">
             {rows.length} week-long stays at {resorts} resorts · list updated {fmtDate(upload.uploadedAt.toISOString().slice(0, 10))}
           </p>

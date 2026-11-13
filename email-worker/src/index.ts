@@ -1,7 +1,7 @@
 import PostalMime from "postal-mime";
 import { EmailMessage } from "cloudflare:email";
 import { createMimeMessage } from "mimetext";
-import { decide, parseList, safeEqual } from "./logic";
+import { decide, digestRecipients, parseList, safeEqual } from "./logic";
 
 interface Env {
   EMAIL: SendEmail;
@@ -11,16 +11,17 @@ interface Env {
   EMAIL_SECRET: string; // shared with the app (EMAIL_SECRET on Vercel)
   FORWARD_TO: string; // your verified Email Routing destination (Gmail)
   ALLOWED_SENDERS: string; // comma-separated; mail from anyone else is rejected
+  FAMILY_TO?: string; // optional, comma-separated: also get the top-picks email (each must be verified in Email Routing)
 }
 
-async function send(env: Env, subject: string, text: string, html?: string) {
+async function send(env: Env, subject: string, text: string, html?: string, to = env.FORWARD_TO) {
   const msg = createMimeMessage();
   msg.setSender({ name: "Trip Finder", addr: env.FROM_ADDRESS });
-  msg.setRecipient(env.FORWARD_TO);
+  msg.setRecipient(to);
   msg.setSubject(subject);
   msg.addMessage({ contentType: "text/plain", data: text });
   if (html) msg.addMessage({ contentType: "text/html", data: html });
-  await env.EMAIL.send(new EmailMessage(env.FROM_ADDRESS, env.FORWARD_TO, msg.asRaw()));
+  await env.EMAIL.send(new EmailMessage(env.FROM_ADDRESS, to, msg.asRaw()));
 }
 
 export default {
@@ -68,7 +69,11 @@ export default {
     // success: the app emails the top picks once processing finishes
   },
 
-  /** POST /send {subject, html, text} from the app (Bearer EMAIL_SECRET); always goes to FORWARD_TO. */
+  /**
+   * POST /send {subject, html, text} from the app (Bearer EMAIL_SECRET): the top-picks email, sent
+   * separately to FORWARD_TO and each FAMILY_TO address (recipients come from secrets, never the
+   * request). Import problems above only go to FORWARD_TO.
+   */
   async fetch(req: Request, env: Env) {
     const url = new URL(req.url);
     if (req.method !== "POST" || url.pathname !== "/send") return new Response("Not found", { status: 404 });
@@ -76,7 +81,25 @@ export default {
     if (!safeEqual(auth.replace(/^Bearer /, ""), env.EMAIL_SECRET)) return new Response("Unauthorized", { status: 401 });
     const body = (await req.json().catch(() => null)) as { subject?: string; html?: string; text?: string } | null;
     if (!body?.subject || !body.text) return new Response("subject and text required", { status: 400 });
-    await send(env, body.subject.slice(0, 200), body.text, body.html);
-    return Response.json({ ok: true });
+    let sent = 0;
+    const failed: string[] = [];
+    for (const to of digestRecipients(env.FORWARD_TO, env.FAMILY_TO)) {
+      try {
+        await send(env, body.subject.slice(0, 200), body.text, body.html, to);
+        sent++;
+      } catch (e) {
+        console.error("send failed", to, e); // usually: not verified in Email Routing yet
+        failed.push(to);
+      }
+    }
+    if (failed.length && failed[0] === env.FORWARD_TO.trim().toLowerCase())
+      return Response.json({ ok: false, sent, failed: failed.length }, { status: 502 });
+    if (failed.length)
+      await send(
+        env,
+        "Trip Finder: some family emails weren't delivered",
+        `The top-picks email couldn't be sent to: ${failed.join(", ")}.\n\nCloudflare only sends to addresses verified under Email Routing > Destination addresses. Add and verify them there, then the next list will reach them.`,
+      ).catch(() => {});
+    return Response.json({ ok: true, sent, failed: failed.length });
   },
 } satisfies ExportedHandler<Env>;

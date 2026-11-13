@@ -53,10 +53,10 @@ export default async function TripPage({ params }: Props) {
           <h1 className="text-lg font-semibold">This week isn&apos;t on the current list</h1>
           <p className="text-sm text-muted">
             {stale!.property}, {fmtDay(stale!.arrivalDate)} – {fmtDay(stale!.checkoutDate)} was on an older list and has
-            been replaced by this month&apos;s.
+            been replaced by a newer one.
           </p>
         </div>
-        <OtherWeeks others={others} title={`${stale!.property} on this month's list`} empty="None this month." />
+        <OtherWeeks others={others} title={`${stale!.property} on the current list`} empty="None on the current list." />
       </div>
     );
 

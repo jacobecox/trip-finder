@@ -64,3 +64,11 @@ export function safeEqual(a: string, b: string) {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
+
+/**
+ * Who gets the top-picks email: you first, then FAMILY_TO, without repeats (case-insensitive).
+ * Each one must be a verified destination in Cloudflare Email Routing or Cloudflare refuses it.
+ */
+export const digestRecipients = (forwardTo: string, family: string | undefined) => [
+  ...new Set([forwardTo.trim().toLowerCase(), ...parseList(family)].filter(Boolean)),
+];
