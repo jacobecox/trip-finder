@@ -7,6 +7,7 @@ import type { Sort, SortKey } from "./trip-table";
  * from a trip page restores them and a filtered view can be shared. Defaults are left out.
  */
 export interface Filters {
+  q: string; // search box
   tickets: string;
   flyFrom: string;
   dates: DateRange;
@@ -39,6 +40,7 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 export function toQuery(f: Filters, sort: Sort, defaults: { filters: Filters; sort: Sort }) {
   const d = defaults.filters;
   const q = new URLSearchParams();
+  if (f.q.trim()) q.set("q", f.q.trim());
   if (f.tag) q.set("tag", f.tag);
   if (f.dates.from) q.set("from", f.dates.from);
   if (f.dates.to) q.set("to", f.dates.to);
@@ -71,6 +73,7 @@ export function fromQuery(
   return {
     filters: {
       ...defaults.filters,
+      q: get("q"),
       tag: (TAGS as readonly string[]).includes(tag) ? (tag as Tag) : "",
       dates: { from: date("from"), to: date("to") },
       drivableOnly: get("drive") === "1",

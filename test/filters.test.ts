@@ -3,6 +3,7 @@ import { fromQuery, toQuery, type Filters } from "@/app/(app)/filter-url";
 import { seatsIn } from "@/lib/flights/fares";
 
 const filters: Filters = {
+  q: "",
   tickets: "3",
   flyFrom: "best",
   dates: { from: "", to: "" },
@@ -21,7 +22,7 @@ describe("filters in the address", () => {
     expect(toQuery(filters, defaults.sort, defaults)).toBe("");
   });
   it("round-trips a filtered, sorted view", () => {
-    const f: Filters = { ...filters, tag: "beach", dates: { from: "2026-12-01", to: "2026-12-31" }, drivableOnly: true, newOnly: true, dropsOnly: true, state: "CA" };
+    const f: Filters = { ...filters, q: "big bear", tag: "beach", dates: { from: "2026-12-01", to: "2026-12-31" }, drivableOnly: true, newOnly: true, dropsOnly: true, state: "CA" };
     const sort = { key: "totalUsd" as const, dir: 1 as const };
     const qs = toQuery(f, sort, defaults);
     const back = fromQuery(Object.fromEntries(new URLSearchParams(qs)), defaults);

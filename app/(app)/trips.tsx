@@ -12,6 +12,7 @@ import { flightsUrl, travelSummary, type Row, type Trip } from "./travel";
 import TripCards from "./trip-cards";
 import TripTable, { type Sort } from "./trip-table";
 import { fromQuery, LIST_KEY, toQuery, type Filters } from "./filter-url";
+import { indexOf, matches, terms } from "@/lib/search";
 
 // MapLibre touches `window`, so the map only loads in the browser
 const ListingsMap = dynamic(() => import("./listings-map"), {
@@ -63,6 +64,7 @@ export default function Trips({
   admin: boolean;
 }) {
   const DEFAULTS: Filters = {
+    q: "",
     tickets: String(scoreSettings.tickets),
     flyFrom: "best",
     dates: { from: "", to: "" },
@@ -158,11 +160,14 @@ export default function Trips({
   const newCount = useMemo(() => rows.filter((r) => r.isNew).length, [rows]);
   const dropCount = useMemo(() => rows.filter((r) => r.priceDropUsd > 0).length, [rows]);
 
+  const index = useMemo(() => new Map(rows.map((r) => [r.id, indexOf(r)])), [rows]);
   const shown = useMemo(() => {
+    const words = terms(f.q);
     const val = (r: Trip) => (sort.key === "location" ? `${r.country}${r.state}${r.city}` : r[sort.key]);
     return rows
       .filter(
         (r) =>
+          matches(index.get(r.id)!, words) &&
           overlaps(r, f.dates) &&
           (!f.drivableOnly || r.isDrivable) &&
           (!f.newOnly || r.isNew) &&
@@ -179,7 +184,7 @@ export default function Trips({
         if (y == null) return -1;
         return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
       });
-  }, [rows, f, sort]);
+  }, [rows, index, f, sort]);
 
   // Same scale as the map pins: each resort's best score among the trips shown, ranked
   const color = useMemo(() => {
@@ -199,7 +204,9 @@ export default function Trips({
     <div className="space-y-4">
       {/* Phones: filters fold into a bar that sticks under the header and opens as a dropdown */}
       <div className="max-sm:sticky max-sm:top-[calc(env(safe-area-inset-top)+3.4rem)] max-sm:z-[1000]">
-      <div className="flex items-center gap-2 rounded-xl border border-line bg-surface/95 p-2 shadow-lg shadow-black/30 backdrop-blur sm:hidden">
+      <div className="space-y-2 rounded-xl border border-line bg-surface/95 p-2 shadow-lg shadow-black/30 backdrop-blur sm:hidden">
+      <Search value={f.q} onChange={(q) => set({ q })} />
+      <div className="flex items-center gap-2">
         <button
           type="button"
           className={`btn btn-secondary ${filtersOpen ? "border-accent/60 text-accent" : ""}`}
@@ -219,6 +226,7 @@ export default function Trips({
           </button>
         )}
       </div>
+      </div>
       <section
         className={`card space-y-3 p-3 sm:p-4 ${
           filtersOpen
@@ -227,6 +235,7 @@ export default function Trips({
         }`}
         aria-label="Filters"
       >
+        <Search value={f.q} onChange={(q) => set({ q })} className="max-sm:hidden" />
         <div className="grid grid-cols-2 items-end gap-3 md:grid-cols-4 lg:grid-cols-[1fr_1fr_1fr_auto_auto]">
           <label className="block space-y-1">
             <span className="label">Sort by</span>
@@ -372,8 +381,10 @@ export default function Trips({
 
       {shown.length === 0 ? (
         <div className="card flex flex-col items-center gap-2 p-10 text-center">
-          <p className="font-medium">No trips match these filters</p>
-          <p className="text-sm text-muted">Try a wider date range or a different activity.</p>
+          <p className="font-medium">{f.q.trim() ? <>No trips match “{f.q.trim()}”</> : "No trips match these filters"}</p>
+          <p className="text-sm text-muted">
+            {f.q.trim() ? "Try a city, state or activity, or clear the other filters." : "Try a wider date range or a different activity."}
+          </p>
           <button className="btn btn-secondary mt-2" onClick={() => setF(DEFAULTS)}>
             Clear filters
           </button>
@@ -441,5 +452,36 @@ function ScoreLegend() {
       />
       best
     </span>
+  );
+}
+
+function Search({ value, onChange, className = "" }: { value: string; onChange: (q: string) => void; className?: string }) {
+  return (
+    <div className={`relative ${className}`}>
+      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted" aria-hidden>
+        🔍
+      </span>
+      <input
+        type="text"
+        autoComplete="off"
+        enterKeyHint="search"
+        className="field w-full pr-8 pl-9"
+        placeholder="Search a place, state or activity: Big Bear, Florida, skiing…"
+        aria-label="Search trips"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+      />
+      {value && (
+        <button
+          type="button"
+          className="absolute top-1/2 right-2 -translate-y-1/2 rounded px-1.5 text-muted hover:text-ink"
+          aria-label="Clear search"
+          onClick={() => onChange("")}
+        >
+          ✕
+        </button>
+      )}
+    </div>
   );
 }
