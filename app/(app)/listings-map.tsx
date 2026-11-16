@@ -5,6 +5,7 @@ import maplibregl, { type GeoJSONSource, type MapLayerMouseEvent } from "maplibr
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fmtDate, fmtUsd } from "@/lib/format";
+import type { Photo } from "@/lib/photos/ref";
 import { escapeHtml, pinsFor, rampColor, rankColors, type MapListing, type Pin } from "@/lib/map";
 
 export interface MapRow extends MapListing {
@@ -12,8 +13,20 @@ export interface MapRow extends MapListing {
   unitType: string;
   totalUsd: number | null;
   travelMode: "drive" | "fly" | null;
-  travelSummary: string; // e.g. "✈ LGB · 1 stop" or "drive 3h 10m"
+  travelSummary: string; // e.g. "Fly to LGB · 1 stop" or "drive 3h 10m"
   flightsUrl: string | null; // Google Flights search for this stay
+  photo: Photo | null;
+}
+
+/** The resort's photo for a popup, with its credit (the image hides itself if it fails). */
+function photoHtml(l: MapRow, width: number) {
+  const ph = l.photo;
+  if (!ph) return "";
+  const credit = ph.kind === "wiki" ? "Wikipedia" : ph.credit ? `${ph.credit} · Google Maps` : "Google Maps";
+  return `<div style="position:relative;width:${width}px;height:${Math.round(width / 2)}px;margin-bottom:6px;border-radius:0.4rem;overflow:hidden;background:#1e2433">
+    <img src="${escapeHtml(ph.src)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.remove()">
+    <span style="position:absolute;right:4px;bottom:4px;max-width:85%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:3px;background:rgb(0 0 0 / .55);padding:0 4px;font-size:9px;font-weight:400;color:rgb(255 255 255 / .85)">Photo: ${escapeHtml(credit)}</span>
+  </div>`;
 }
 
 // OpenFreeMap: free OpenStreetMap vector tiles, no API key.
@@ -30,6 +43,7 @@ function popupHtml(p: Pin<MapRow>) {
       : escapeHtml(l.travelSummary);
   return `
     <div style="min-width:220px">
+      ${photoHtml(p.listings[0], 260)}
       <div style="font-weight:600">${escapeHtml(p.name)}</div>
       <div class="tf-muted" style="font-size:12px;margin-bottom:4px">${escapeHtml(p.location)}</div>
       <table style="font-size:12px;border-collapse:collapse;width:100%">
@@ -115,7 +129,12 @@ export default function ListingsMap({ rows, origin }: { rows: MapRow[]; origin: 
       m.on("mouseenter", "pins", (e: MapLayerMouseEvent) => {
         m.getCanvas().style.cursor = "pointer";
         const f = e.features?.[0];
-        if (f) hover.setLngLat(e.lngLat).setText(String(f.properties.label)).addTo(m);
+        if (!f) return;
+        const p = pinsRef.current[Number(f.properties.i)];
+        hover
+          .setLngLat(e.lngLat)
+          .setHTML(`${p ? photoHtml(p.listings[0], 220) : ""}${escapeHtml(String(f.properties.label))}`)
+          .addTo(m);
       });
       m.on("mouseleave", "pins", () => {
         m.getCanvas().style.cursor = "";

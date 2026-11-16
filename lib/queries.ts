@@ -1,3 +1,4 @@
+import { photoOf } from "@/lib/photos/ref";
 import type { ClimateStats } from "@/lib/db/schema";
 import { and, desc, eq, lt, ne, sql } from "drizzle-orm";
 import { getDb, listing, listingsUpload, property, propertyTag, settings } from "@/lib/db";
@@ -79,6 +80,11 @@ export async function getCurrentListings() {
       driveMiles: property.driveMiles,
       tagStatus: property.tagStatus,
       tagsReviewed: property.tagsReviewed,
+      photoStatus: property.photoStatus,
+      photoIndex: property.photoIndex,
+      photoUrl: property.photoUrl,
+      photoCredit: property.photoCredit,
+      photoCreditUrl: property.photoCreditUrl,
     })
     .from(listing)
     .innerJoin(property, eq(listing.propertyId, property.id))
@@ -97,8 +103,10 @@ export async function getCurrentListings() {
     rows: rows.map((r) => {
       const tags = effectiveTags(tagMap.get(r.propertyId) ?? []);
       const before = prev?.prices.get(r.inventoryNumber);
+      const { photoStatus, photoIndex, photoUrl, photoCredit, photoCreditUrl, ...rest } = r;
       return {
-        ...r,
+        ...rest,
+        photo: photoOf({ propertyId: r.propertyId, photoStatus, photoIndex, photoUrl, photoCredit, photoCreditUrl }),
         tags,
         untagged: isUntagged(r, tags),
         fare: fares.get(r) ?? null,
@@ -124,7 +132,8 @@ export async function getPropertiesWithCounts() {
       pinned,
       excluded,
     }));
-    return { ...r, tagRows, tags, untagged: isUntagged(r, tags), airportRows };
+    const photo = photoOf({ ...r, propertyId: r.id });
+    return { ...r, photo, tagRows, tags, untagged: isUntagged(r, tags), airportRows };
   });
 }
 
@@ -151,6 +160,12 @@ function propertyRows() {
       tagsReviewed: property.tagsReviewed,
       airportStatus: property.airportStatus,
       airportError: property.airportError,
+      photoStatus: property.photoStatus,
+      photoError: property.photoError,
+      photoIndex: property.photoIndex,
+      photoUrl: property.photoUrl,
+      photoCredit: property.photoCredit,
+      photoCreditUrl: property.photoCreditUrl,
       listingCount: sql<number>`(select count(*)::int from ${listing} where ${listing.propertyId} = ${property.id})`,
     })
     .from(property)

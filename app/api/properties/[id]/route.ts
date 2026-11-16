@@ -6,6 +6,8 @@ import { getDb, property, propertyAirport, propertyTag, TAGS } from "@/lib/db";
 import { airportByIata } from "@/lib/flights/airports";
 import { computeDrivable } from "@/lib/geo/geocode-job";
 import { getSettings } from "@/lib/queries";
+import { PhotoCapError } from "@/lib/photos/google";
+import { saveGooglePhoto } from "@/lib/photos/job";
 
 const Body = z.object({
   lat: z.number().min(-90).max(90).nullable().optional(),
@@ -18,6 +20,8 @@ const Body = z.object({
   tagsReviewed: z.boolean().optional(),
   resetTags: z.boolean().optional(),
   // per-airport manual choice: "pin" = always search, "exclude" = never, null = back to auto
+  // photo: step to the place's next photo, hide it, or look for one again
+  photo: z.enum(["next", "hide", "refind"]).optional(),
   airports: z.record(z.string().regex(/^[A-Za-z]{3}$/), z.enum(["pin", "exclude"]).nullable()).optional(),
 });
 
@@ -66,8 +70,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
   }
   if (b.tagsReviewed !== undefined) patch.tagsReviewed = b.tagsReviewed;
+  if (b.photo === "hide") patch.photoStatus = "hidden";
+  if (b.photo === "refind")
+    Object.assign(patch, { photoStatus: "pending", googlePlaceId: null, photoIndex: 0, photoUrl: null, photoCredit: null, photoCreditUrl: null });
   if (b.resetTags) patch.tagsReviewed = false;
   await db.update(property).set(patch).where(eq(property.id, id));
+  if (b.photo === "next") {
+    // downloads the place's next photo now (one billed download) and keeps it
+    const [p] = await db.select({ placeId: property.googlePlaceId, index: property.photoIndex }).from(property).where(eq(property.id, id));
+    if (!p?.placeId) return NextResponse.json({ error: "No Google place for this resort" }, { status: 400 });
+    try {
+      await saveGooglePhoto(id, p.placeId, p.index + 1);
+    } catch (e) {
+      const msg = e instanceof PhotoCapError ? "This month's photo downloads are used up" : "Couldn't get the next photo";
+      return NextResponse.json({ error: msg }, { status: 502 });
+    }
+  }
 
   if (b.resetTags) await db.update(propertyTag).set({ manual: null }).where(eq(propertyTag.propertyId, id));
   const manual = Object.entries(b.tags ?? {}) as [(typeof TAGS)[number], boolean | null][];

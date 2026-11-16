@@ -57,6 +57,13 @@
       "when": 1794527937840,
       "tag": "0007_parallel_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794871351754,
+      "tag": "0008_faithful_grandmaster",
+      "breakpoints": true
     }
   ]
 }

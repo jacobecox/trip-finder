@@ -14,6 +14,7 @@ import { daysOf, rainOnly, SKY, skyOf } from "@/lib/weather/climate";
 import { forecastsFor } from "@/lib/weather/forecast";
 import { ChangeBadges, flightFacts, placeLine, ScoreBadge, TravelLine, WeatherChip } from "../../travel";
 import { BackLink } from "./back-link";
+import { PropertyPhoto } from "../../photo";
 import { ShareButton } from "./share-button";
 
 export const dynamic = "force-dynamic";
@@ -76,7 +77,10 @@ export default async function TripPage({ params }: Props) {
     <article className="mx-auto max-w-2xl space-y-4">
       <BackLink />
 
-      <header className="card space-y-4 p-4 sm:p-5">
+      <header className="card space-y-4 overflow-hidden p-4 sm:p-5">
+        {r.photo && (
+          <PropertyPhoto photo={r.photo} alt={r.property} eager className={PHOTO_CLASS} />
+        )}
         <div className="flex items-start gap-3">
           <span title={`Score ${r.score == null ? "not available yet" : Math.round(r.score)} out of 100`}>
             <ScoreBadge score={r.score} color={r.color} size="lg" />
@@ -231,6 +235,8 @@ const forecastOf = cache(async (id: number, lat: number | null, lng: number | nu
   (await forecastsFor([{ id, lat, lng, arrivalDate, checkoutDate }])).get(id) ?? null,
 );
 const withForecast = async (r: WeatherRow) => ({ ...r, forecast: await forecastOf(r.id, r.lat, r.lng, r.arrivalDate, r.checkoutDate) });
+
+const PHOTO_CLASS = "-mx-4 -mt-4 aspect-[2/1] sm:-mx-5 sm:-mt-5 border-b border-line";
 
 async function ForecastChip({ r, nights }: { r: WeatherRow; nights: number }) {
   return <WeatherChip r={await withForecast(r)} nights={nights} />;

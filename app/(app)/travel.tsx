@@ -7,6 +7,7 @@ import type { FareInfo } from "@/lib/flights/fares";
 import { originCost } from "@/lib/flights/pick";
 import type { Scored } from "@/lib/scoring";
 import type { Tag } from "@/lib/tags/constants";
+import type { Photo } from "@/lib/photos/ref";
 
 export interface Row {
   id: number;
@@ -32,6 +33,7 @@ export interface Row {
   priceDropUsd: number; // stay got this much cheaper since the previous list (0 = no drop)
   climate: ClimateStats | null; // typical weather for these dates (null until looked up)
   forecast: ClimateStats | null; // real forecast, for stays starting within 16 days
+  photo: Photo | null;
 }
 
 export type Trip = Row & Scored;

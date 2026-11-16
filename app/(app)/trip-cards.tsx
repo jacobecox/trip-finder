@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { daysUntil, fmtCountdown, fmtShortDate, fmtUsd, nightsBetween } from "@/lib/format";
 import type { Tag } from "@/lib/tags/constants";
+import { PropertyPhoto } from "./photo";
 import { TagChips } from "./tag-chips";
 import { ChangeBadges, placeLine, ScoreBadge, TravelLine, WeatherChip, type Trip } from "./travel";
 
@@ -55,7 +56,9 @@ function TripCard({
   const nights = nightsBetween(r.arrivalDate, r.checkoutDate);
   const travelLabel = r.travelMode === "drive" ? "Gas" : "Flights";
   return (
-    <article className="card group relative flex min-w-0 flex-col gap-3 p-4 transition-colors hover:border-accent/40 has-[a:focus-visible]:border-accent">
+    <article className="card group relative flex min-w-0 flex-col overflow-hidden transition-colors hover:border-accent/40 has-[a:focus-visible]:border-accent">
+      <PropertyPhoto photo={r.photo} alt={r.property} className="aspect-[2/1] w-full border-b border-line" />
+      <div className="flex flex-1 flex-col gap-3 p-4">
       <header className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-semibold leading-snug transition-colors group-hover:text-accent">
@@ -108,6 +111,7 @@ function TripCard({
 
       <div className="mt-auto flex justify-end text-xs font-medium text-muted transition-colors group-hover:text-accent">
         Full details <Icon as={ChevronRight} className="text-current" />
+      </div>
       </div>
     </article>
   );

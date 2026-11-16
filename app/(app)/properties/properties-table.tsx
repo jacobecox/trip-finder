@@ -8,6 +8,8 @@ import { Spinner } from "@/components/ui";
 import { fmtHours } from "@/lib/format";
 import { TAGS, tagDisplay, type Tag } from "@/lib/tags/constants";
 import type { TagRow } from "@/lib/tags/effective";
+import type { Photo } from "@/lib/photos/ref";
+import { PropertyPhoto } from "../photo";
 
 interface P {
   id: number;
@@ -34,7 +36,42 @@ interface P {
   untagged: boolean;
   airportStatus: string;
   airportError: string | null;
+  photo: Photo | null;
+  photoStatus: string;
+  photoError: string | null;
   airportRows: { iata: string; driveHours: number | null; auto: boolean; pinned: boolean; excluded: boolean }[];
+}
+
+/** The resort's photo, with buttons to try the place's next photo, hide it, or search again. */
+function PhotoEditor({ p, send }: { p: P; send: (body: object) => Promise<void> }) {
+  const status = p.photoStatus;
+  return (
+    <div className="w-32 space-y-1 text-[11px]">
+      <PropertyPhoto photo={p.photo} alt={p.name} className="aspect-[2/1] w-32 rounded-md" />
+      <div className="flex flex-wrap gap-x-2">
+        {status === "google" && (
+          <button className="link" onClick={() => send({ photo: "next" })}>
+            next photo
+          </button>
+        )}
+        {(status === "google" || status === "wiki") && (
+          <button className="text-muted underline hover:text-ink" onClick={() => send({ photo: "hide" })}>
+            hide
+          </button>
+        )}
+        {status !== "pending" && (
+          <button className="text-muted underline hover:text-ink" onClick={() => send({ photo: "refind" })}>
+            find again
+          </button>
+        )}
+      </div>
+      {status === "wiki" && <div className="text-muted">town photo (no Google photo)</div>}
+      {status === "none" && <div className="text-muted">no photo found</div>}
+      {status === "hidden" && <div className="text-muted">hidden</div>}
+      {status === "pending" && p.lat != null && <div className="text-amber-300">pending</div>}
+      {status === "failed" && <div className="text-red-300">failed: {p.photoError}</div>}
+    </div>
+  );
 }
 
 /** Arrival airports searched for this property. Click to exclude/restore; add a code to pin it. */
@@ -186,6 +223,9 @@ function Row({ p }: { p: P }) {
         </div>
       </td>
       <td className="px-2 py-1.5">
+        <PhotoEditor p={p} send={send} />
+      </td>
+      <td className="px-2 py-1.5">
         <span className={`rounded-full px-2 py-0.5 text-xs ${badge}`}>{p.geocodeStatus}</span>
         {p.geocodeError && <div className="mt-1 text-xs text-red-300">{p.geocodeError}</div>}
         {p.geocodeSource && <div className="text-xs text-muted">{p.geocodeSource}</div>}
@@ -316,6 +356,7 @@ export default function PropertiesTable({ rows }: { rows: P[] }) {
           <thead className="border-b border-line text-muted">
             <tr>
               <th className="px-2 py-2 text-left font-medium">Property</th>
+              <th className="px-2 py-2 text-left font-medium">Photo</th>
               <th className="px-2 py-2 text-left font-medium">Geocode</th>
               <th className="px-2 py-2 text-left font-medium">Lat / Lng</th>
               <th className="px-2 py-2 text-left font-medium">Drive</th>

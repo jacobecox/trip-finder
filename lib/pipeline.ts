@@ -3,6 +3,7 @@ import { getDb, listingsUpload } from "@/lib/db";
 import { countPending, runGeocodeBatch } from "@/lib/geo/geocode-job";
 import { fareStatus, runFareBatch } from "@/lib/flights/job";
 import { climateNeeded, runClimateBatch } from "@/lib/weather/job";
+import { countPhotoPending, runPhotoBatch } from "@/lib/photos/job";
 import { getLatestUpload } from "@/lib/queries";
 import { buildDigest } from "@/lib/digest";
 import { sendEmail } from "@/lib/email/send";
@@ -19,6 +20,7 @@ export interface PipelineResult {
   progressed: boolean;
   digest: "sent" | "already-sent" | "not-email" | "waiting" | "failed" | "none";
   climateRemaining: number;
+  photoRemaining: number;
   moreWork: boolean;
 }
 
@@ -77,6 +79,18 @@ export async function processPending(budgetMs: number): Promise<PipelineResult> 
     }
   }
 
+  // 5. a photo for each new resort (Google place, else Wikipedia's photo of the town)
+  let photoRemaining = 0;
+  if (geocodeRemaining === 0) {
+    photoRemaining = await countPhotoPending();
+    while (photoRemaining > 0 && left() > 5_000) {
+      const r = await runPhotoBatch(Math.min(BATCH_MS, left()));
+      photoRemaining = r.remaining;
+      if (r.processed > 0) progressed = true;
+      else break;
+    }
+  }
+
   return {
     geocodeRemaining,
     fareRemaining: fares.remaining,
@@ -84,7 +98,8 @@ export async function processPending(budgetMs: number): Promise<PipelineResult> 
     progressed,
     digest,
     climateRemaining,
-    moreWork: geocodeRemaining > 0 || autoPrice === "running" || climateRemaining > 0,
+    photoRemaining,
+    moreWork: geocodeRemaining > 0 || autoPrice === "running" || climateRemaining > 0 || photoRemaining > 0,
   };
 }
 

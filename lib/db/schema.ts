@@ -62,6 +62,17 @@ export const property = pgTable(
     airportStatus: text("airport_status").notNull().default("pending"),
     airportError: text("airport_error"),
 
+    // resort photo, fetched once when the resort is first seen and kept (Google's photo copied to
+    // Blob storage, or Wikipedia's photo of the town linked directly).
+    // pending | google | wiki | none | hidden | failed
+    photoStatus: text("photo_status").notNull().default("pending"),
+    photoError: text("photo_error"),
+    googlePlaceId: text("google_place_id"),
+    photoIndex: integer("photo_index").notNull().default(0), // which of the place's photos (admin can step through)
+    photoUrl: text("photo_url"), // private Blob URL (google) or Wikimedia URL (wiki)
+    photoCredit: text("photo_credit"), // photographer (google) or article title (wiki)
+    photoCreditUrl: text("photo_credit_url"),
+
     // manual overrides survive re-geocoding
     latLngOverridden: boolean("lat_lng_overridden").notNull().default(false),
     driveOverridden: boolean("drive_overridden").notNull().default(false),
