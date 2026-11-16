@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { indexOf, matches, type Searchable } from "./search";
+import { indexOf, matches, search, type Searchable } from "./search";
 
 const stay = (property: string, city: string, state: string, country = "United States", over: Partial<Searchable> = {}): Searchable => ({
   property, city, state, country, unitType: "1 Bedroom", tags: [], isDrivable: false, climate: null, forecast: null, ...over,
@@ -75,5 +75,41 @@ describe("trip search", () => {
   it("an empty search matches everything", () => {
     expect(find("").length).toBe(ALL.length);
     expect(find("the resort near").length).toBe(ALL.length);
+  });
+  it("matches as you type, letter by letter", () => {
+    const cal = ["Lagonita Lodge", "Snow Lake Lodge", "Stardust - Tahoe", "Sand Pebbles"];
+    for (const q of ["ca", "cal", "cali", "calif", "california"]) expect(find(q), q).toEqual(cal);
+    expect(find("big bea")).toEqual(["Lagonita Lodge", "Snow Lake Lodge"]);
+    for (const q of ["gat", "gatl", "gatlin"]) expect(find(q), q).toEqual(["Club Chalet"]);
+  });
+});
+
+describe("misspellings", () => {
+  const items = [
+    stay("Riptide Beach Club", "Myrtle Beach", "SC"),
+    stay("Schooner Ii", "Myrtle Beach", "SC"),
+    stay("Waikiki Skytower", "Honolulu", "HI"),
+    stay("Club Chalet", "Gatlinburg", "TN"),
+    stay("Sedona Pines Resort", "Sedona", "AZ"),
+    stay("London Bridge Resort", "Lake Havasu City", "AZ"),
+  ].map((s) => ({ key: s.property, ix: indexOf(s) }));
+  const look = (q: string) => {
+    const r = search(items, q);
+    return { found: items.filter((x) => r.keys?.has(x.key)).map((x) => x.key), close: r.close };
+  };
+  it("finds what was meant", () => {
+    expect(look("murtle beach")).toEqual({ found: ["Riptide Beach Club", "Schooner Ii"], close: false });
+    expect(look("mirtle")).toEqual({ found: ["Riptide Beach Club", "Schooner Ii"], close: false });
+    expect(look("honalulu").found).toEqual(["Waikiki Skytower"]);
+    expect(look("sedonna").found).toEqual(["Sedona Pines Resort"]);
+    expect(look("havasoo").found).toEqual(["London Bridge Resort"]);
+    expect(look("murt")).toEqual({ found: ["Riptide Beach Club", "Schooner Ii"], close: true });
+    expect(look("gatlenburgh").found).toEqual(["Club Chalet"]);
+  });
+  it("prefers exact matches over close ones", () => {
+    expect(look("beach")).toEqual({ found: ["Riptide Beach Club", "Schooner Ii"], close: false });
+    expect(look("zzzz")).toEqual({ found: [], close: true });
+    expect(look("sc").found).toEqual(["Riptide Beach Club", "Schooner Ii"]); // the state
+    expect(look("se").found).toEqual(["Sedona Pines Resort"]); // no "se" state: start of a word
   });
 });

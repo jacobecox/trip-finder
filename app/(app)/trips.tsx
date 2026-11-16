@@ -12,7 +12,7 @@ import { flightsUrl, travelSummary, type Row, type Trip } from "./travel";
 import TripCards from "./trip-cards";
 import TripTable, { type Sort } from "./trip-table";
 import { fromQuery, LIST_KEY, toQuery, type Filters } from "./filter-url";
-import { indexOf, matches, terms } from "@/lib/search";
+import { indexOf, search } from "@/lib/search";
 
 // MapLibre touches `window`, so the map only loads in the browser
 const ListingsMap = dynamic(() => import("./listings-map"), {
@@ -160,14 +160,14 @@ export default function Trips({
   const newCount = useMemo(() => rows.filter((r) => r.isNew).length, [rows]);
   const dropCount = useMemo(() => rows.filter((r) => r.priceDropUsd > 0).length, [rows]);
 
-  const index = useMemo(() => new Map(rows.map((r) => [r.id, indexOf(r)])), [rows]);
+  const index = useMemo(() => rows.map((r) => ({ key: r.id, ix: indexOf(r) })), [rows]);
+  const found = useMemo(() => search(index, f.q), [index, f.q]);
   const shown = useMemo(() => {
-    const words = terms(f.q);
     const val = (r: Trip) => (sort.key === "location" ? `${r.country}${r.state}${r.city}` : r[sort.key]);
     return rows
       .filter(
         (r) =>
-          matches(index.get(r.id)!, words) &&
+          (!found.keys || found.keys.has(r.id)) &&
           overlaps(r, f.dates) &&
           (!f.drivableOnly || r.isDrivable) &&
           (!f.newOnly || r.isNew) &&
@@ -184,7 +184,7 @@ export default function Trips({
         if (y == null) return -1;
         return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
       });
-  }, [rows, index, f, sort]);
+  }, [rows, found, f, sort]);
 
   // Same scale as the map pins: each resort's best score among the trips shown, ranked
   const color = useMemo(() => {
@@ -349,6 +349,11 @@ export default function Trips({
       </section>
       </div>
 
+      {found.close && found.keys!.size > 0 && f.q.trim().length >= 4 && (
+        <p className="text-sm text-muted">
+          Nothing matches “{f.q.trim()}” exactly, so these are the closest matches.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p className="text-sm max-sm:hidden">
           <span className="font-semibold">{shown.length}</span> <span className="text-muted">of {rows.length} trips</span>

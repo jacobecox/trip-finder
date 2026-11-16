@@ -221,22 +221,44 @@ export function terms(q: string) {
     .filter((w) => w && !STOP.has(w));
 }
 
-function termMatches(t: string, ix: Index, last: boolean) {
-  // Short words (state codes like "ca", "co") only count as whole words
-  if (t.length <= 3) return ix.text.includes(` ${t} `) || ix.words.includes(stem(t));
+function termMatches(t: string, ix: Index, last: boolean, loose: boolean, alone: boolean) {
   const s = stem(t);
-  if (ix.words.includes(s)) return true;
-  // The word being typed also counts as the start of a word ("kiss" finds Kissimmee)
-  if (last && ix.words.some((w) => w.startsWith(s))) return true;
-  const max = t.length >= 10 ? 2 : t.length >= 5 ? 1 : 0;
-  return max > 0 && ix.words.some((w) => w.length >= 4 && editDistance(s, w, max) <= max);
+  if (ix.text.includes(` ${t} `) || ix.words.includes(s)) return true;
+  // The word being typed also counts as the start of a word ("cal" finds California, "kiss"
+  // Kissimmee, "big b" Big Bear). Two letters on their own count whole first, so "ca" is the
+  // state, not every "Ca..." word; if that finds nothing, the loose pass takes them as a start.
+  const prefixOk = t.length >= 3 || !alone || loose;
+  if (last && prefixOk && ix.words.some((w) => w.startsWith(t.length > 3 ? s : t))) return true;
+  if (t.length <= 3) return false;
+  // Typos: one wrong letter in longer words ("murtle", "gatlinberg"). When that finds nothing at
+  // all, the loose pass also allows them in 4-letter words, two in longer ones, and in the word
+  // still being typed ("murt").
+  const max = loose ? (t.length >= 6 ? 2 : 1) : t.length >= 10 ? 2 : t.length >= 5 ? 1 : 0;
+  if (!max) return false;
+  return ix.words.some(
+    (w) =>
+      w.length >= 4 &&
+      (editDistance(s, w, max) <= max || (loose && last && w.length > s.length && editDistance(s, w.slice(0, s.length), 1) <= 1)),
+  );
 }
 
 /** Does this stay match the search? Every word has to match something. */
-export function matches(ix: Index, q: string | string[]) {
+export function matches(ix: Index, q: string | string[], loose = false) {
   const ts = typeof q === "string" ? terms(q) : q;
   if (!ts.length) return true;
   // The whole phrase as written ("big bear", "lake tahoe") counts even if the words split up
   if (ix.text.includes(` ${ts.join(" ")} `)) return true;
-  return ts.every((t, i) => termMatches(t, ix, i === ts.length - 1));
+  return ts.every((t, i) => termMatches(t, ix, i === ts.length - 1, loose, ts.length === 1));
+}
+
+/**
+ * Ids of the stays matching the search. If nothing matches exactly, it retries allowing bigger
+ * typos and says so (`close`), like "did you mean".
+ */
+export function search<T>(items: { key: T; ix: Index }[], q: string): { keys: Set<T> | null; close: boolean } {
+  const ts = terms(q);
+  if (!ts.length) return { keys: null, close: false };
+  const exact = items.filter((x) => matches(x.ix, ts)).map((x) => x.key);
+  if (exact.length) return { keys: new Set(exact), close: false };
+  return { keys: new Set(items.filter((x) => matches(x.ix, ts, true)).map((x) => x.key)), close: true };
 }
