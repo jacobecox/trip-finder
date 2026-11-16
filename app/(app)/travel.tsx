@@ -1,3 +1,5 @@
+import { Icon } from "@/components/icon";
+import { Car, ExternalLink, MapPin, Plane, TrendingDown } from "lucide-react";
 import { fmtDate, fmtHours, fmtMinutes, fmtUsd } from "@/lib/format";
 import type { ClimateStats } from "@/lib/db/schema";
 import { daysOf, rainOnly, SKY, skyOf } from "@/lib/weather/climate";
@@ -54,8 +56,8 @@ export function ScoreBadge({ score, color, size = "md" }: { score: number | null
 export function travelSummary(r: { travelMode: "drive" | "fly" | null; driveHours: number | null; fare: FareInfo }) {
   if (r.travelMode === "drive") return `drive ${fmtHours(r.driveHours)}`;
   const f = r.fare;
-  if (f && "iata" in f) return `✈ ${f.iata} · ${f.stops === 0 ? "nonstop" : `${f.stops} stop${f.stops > 1 ? "s" : ""}`}`;
-  return r.travelMode === "fly" ? "✈ est." : "";
+  if (f && "iata" in f) return `Fly to ${f.iata} · ${f.stops === 0 ? "nonstop" : `${f.stops} stop${f.stops > 1 ? "s" : ""}`}`;
+  return r.travelMode === "fly" ? "Fly (est.)" : "";
 }
 
 export function scoreTitle(r: { costScore: number | null; activityScore: number }) {
@@ -82,7 +84,7 @@ export function ChangeBadges({ r, hint = true }: { r: Pick<Row, "isNew" | "price
           className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300"
           title={hint ? `Stay was ${fmtUsd(r.priceUsd + r.priceDropUsd)} on the previous list` : undefined}
         >
-          ↓ {fmtUsd(r.priceDropUsd)}
+          <Icon as={TrendingDown} className="text-current" /> {fmtUsd(r.priceDropUsd)}
         </span>
       )}
     </>
@@ -129,11 +131,11 @@ export function WeatherChip({ r, nights, hint = true }: { r: Pick<Row, "climate"
 /** One-line travel summary for a trip card. */
 export function TravelLine({ r, home }: { r: Trip; home: string }) {
   if (r.geocodeStatus !== "ok")
-    return <span className="text-amber-300/90">📍 Still finding this resort on the map, so travel isn&apos;t priced yet</span>;
+    return <span className="text-amber-300/90"><Icon as={MapPin} className="text-current" /> Still finding this resort on the map, so travel isn&apos;t priced yet</span>;
   if (r.travelMode === "drive")
     return (
       <span>
-        🚗 {fmtHours(r.driveHours)} drive · {Math.round(r.driveMiles ?? 0).toLocaleString()} mi
+        <Icon as={Car} /> {fmtHours(r.driveHours)} drive · {Math.round(r.driveMiles ?? 0).toLocaleString()} mi
         <span className="ml-2 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-300">drivable</span>
       </span>
     );
@@ -142,12 +144,12 @@ export function TravelLine({ r, home }: { r: Trip; home: string }) {
     const stops = f.stops === 0 ? "nonstop" : `${f.stops} stop${f.stops > 1 ? "s" : ""}`;
     return (
       <span>
-        ✈ {f.origin ?? home} → {f.iata} · {f.airline} ·{" "}
+        <Icon as={Plane} /> {f.origin ?? home} → {f.iata} · {f.airline} ·{" "}
         <span className={f.stops === 0 ? "text-emerald-300" : ""}>{stops}</span>
         {f.durationMin > 0 && <span className="whitespace-nowrap"> · {fmtMinutes(f.durationMin)}</span>}
         {f.searchUrl && (
           <a className="link relative z-10 ml-2 whitespace-nowrap" href={f.searchUrl} target="_blank" rel="noreferrer">
-            Google Flights ↗
+            Google Flights <Icon as={ExternalLink} className="text-current opacity-70" />
           </a>
         )}
       </span>
@@ -156,7 +158,7 @@ export function TravelLine({ r, home }: { r: Trip; home: string }) {
   const none = f && "status" in f && f.status === "none";
   return (
     <span className="text-muted">
-      ✈ {none ? "No flights found, so the cost is a rough estimate" : "Flight cost is an estimate until real fares are looked up"}
+      <Icon as={Plane} /> {none ? "No flights found, so the cost is a rough estimate" : "Flight cost is an estimate until real fares are looked up"}
     </span>
   );
 }
@@ -193,7 +195,7 @@ export function TravelNote({ r, tickets, home, flyFrom }: { r: Trip; tickets: nu
   const f = r.fare;
   if (r.fareSource === "quote" && f && "iata" in f) {
     const scaled = tickets !== f.seats;
-    const label = `✈ ${f.origin && f.origin !== home ? `${f.origin}→` : ""}${f.iata} · ${f.airline}`;
+    const label = `${f.origin && f.origin !== home ? `${f.origin}→` : ""}${f.iata} · ${f.airline}`;
     const others = Object.values(f.byOrigin ?? {}).filter((o) => o.origin !== f.origin);
     const stops =
       f.stops === 0
@@ -206,10 +208,12 @@ export function TravelNote({ r, tickets, home, flyFrom }: { r: Trip; tickets: nu
       <div className={`${muted} max-w-64 whitespace-normal`} title={title}>
         {f.searchUrl ? (
           <a className="underline decoration-dotted hover:text-accent" href={f.searchUrl} target="_blank" rel="noreferrer">
-            {label}
+            <Icon as={Plane} /> {label}
           </a>
         ) : (
-          label
+          <>
+            <Icon as={Plane} /> {label}
+          </>
         )}
         <div className={f.stops === 0 ? "text-emerald-300" : ""}>
           {f.stops > 0 && f.layovers?.length ? `${f.stops} stop${f.stops > 1 ? "s" : ""}: ` : ""}

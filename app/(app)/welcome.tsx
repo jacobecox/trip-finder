@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "@/components/icon";
+import { ArrowRight, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -26,9 +28,9 @@ export default function Welcome() {
   return (
     <aside className="card relative overflow-hidden border-accent/30 bg-[linear-gradient(110deg,rgba(250,204,21,0.10),transparent_55%)] p-4 pr-10 sm:p-5 sm:pr-12">
       <button className="btn btn-ghost absolute top-2 right-2 h-7 w-7 p-0" onClick={close} aria-label="Dismiss tips">
-        ✕
+        <Icon as={X} className="text-current" />
       </button>
-      <h2 className="font-semibold">👋 Welcome! Here&apos;s how to use this</h2>
+      <h2 className="font-semibold">Welcome! Here&apos;s how to use this</h2>
       <ol className="mt-2 grid gap-2 text-sm text-ink/90 sm:grid-cols-3">
         <li>
           <span className="font-medium text-accent">1. Each card is one week-long stay.</span> The total is the stay plus
@@ -45,7 +47,7 @@ export default function Welcome() {
       </ol>
       <div className="mt-3 flex gap-3 text-sm">
         <Link href="/guide" className="link">
-          Read the full guide →
+          Read the full guide <Icon as={ArrowRight} className="text-current" />
         </Link>
         <button className="text-muted transition-colors hover:text-ink" onClick={close}>
           Got it

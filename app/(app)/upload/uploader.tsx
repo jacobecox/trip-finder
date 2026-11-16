@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "@/components/icon";
+import { ArrowRight, Check, FileUp } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Spinner } from "@/components/ui";
@@ -93,7 +95,7 @@ export default function Uploader() {
           drag ? "border-accent bg-accent/10" : "border-line bg-surface hover:border-accent/60 hover:bg-accent/5"
         }`}
       >
-        <span className="text-4xl" aria-hidden>📄</span>
+        <Icon as={FileUp} className="size-10 text-accent" />
         <span className="font-medium">Drag the PDF here, or click to choose it</span>
         <span className="text-xs text-muted">Availability list from the exchange (.pdf)</span>
         <input
@@ -111,7 +113,7 @@ export default function Uploader() {
       {status && (
         <p className="flex items-center gap-2 text-sm">
           {status !== "Done." && <Spinner className="h-4 w-4 text-accent" />}
-          {status === "Done." ? "✓ Done." : status}
+          {status === "Done." ? <><Icon as={Check} className="text-emerald-300" /> Done.</> : status}
         </p>
       )}
       {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
@@ -145,7 +147,7 @@ export default function Uploader() {
       )}
       {finished && (
         <Link href="/" className="btn btn-primary">
-          View listings →
+          View listings <Icon as={ArrowRight} className="text-current" />
         </Link>
       )}
     </div>

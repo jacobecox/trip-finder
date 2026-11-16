@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "@/components/icon";
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Spinner } from "@/components/ui";
@@ -122,7 +124,7 @@ function TagEditor({ p, send }: { p: P; send: (body: object) => Promise<void> })
         {p.tagStatus === "failed" && <span className="text-red-300">tagging failed: {p.tagError}</span>}
         {p.untagged && <span className="chip bg-amber-500/15 text-amber-200">untagged</span>}
         <button className="link" onClick={() => send({ tagsReviewed: !p.tagsReviewed })}>
-          {p.tagsReviewed ? "Reviewed ✓" : "Mark reviewed"}
+          {p.tagsReviewed ? <>Reviewed <Icon as={Check} className="text-current" /></> : "Mark reviewed"}
         </button>
         {hasManual && (
           <button className="text-muted underline hover:text-ink" onClick={() => send({ resetTags: true })}>

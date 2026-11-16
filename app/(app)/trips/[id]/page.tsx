@@ -1,3 +1,5 @@
+import { Icon } from "@/components/icon";
+import { BedDouble, CalendarDays, Car, Compass, ExternalLink, Gauge, Plane, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -87,12 +89,14 @@ export default async function TripPage({ params }: Props) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <ChangeBadges r={r} />
           <span>
-            📅 {fmtDay(r.arrivalDate)} – {fmtDay(r.checkoutDate)}
+            <Icon as={CalendarDays} /> {fmtDay(r.arrivalDate)} – {fmtDay(r.checkoutDate)}
           </span>
           <span className="text-muted">
             {nights} nights · <span suppressHydrationWarning>{fmtCountdown(daysUntil(r.arrivalDate))}</span>
           </span>
-          <span className="text-muted">🛏 {r.unitType}</span>
+          <span className="text-muted">
+            <Icon as={BedDouble} /> {r.unitType}
+          </span>
           <Suspense fallback={<WeatherChip r={r} nights={nights} />}>
             <ForecastChip r={r} nights={nights} />
           </Suspense>
@@ -127,13 +131,13 @@ export default async function TripPage({ params }: Props) {
           />
           {quote?.searchUrl && (
             <a className="btn btn-primary" href={quote.searchUrl} target="_blank" rel="noreferrer">
-              ✈ Google Flights ↗
+              <Icon as={Plane} className="text-current" /> Google Flights <Icon as={ExternalLink} className="text-current" />
             </a>
           )}
         </div>
       </header>
 
-      <Section title={r.travelMode === "drive" ? "🚗 Getting there" : "✈ Getting there"}>
+      <Section icon={r.travelMode === "drive" ? Car : Plane} title="Getting there">
         {(r.travelMode !== "fly" || quote) && (
           <p>
             <TravelLine r={r} home={s.originAirport} />
@@ -154,14 +158,14 @@ export default async function TripPage({ params }: Props) {
         )}
         {r.travelMode === "fly" && !quote && (
           <p className="text-muted">
-            ✈ Flight cost is estimated from the distance ({s.tickets} seat{s.tickets === 1 ? "" : "s"}). Real fares are
+            Flight cost is estimated from the distance ({s.tickets} seat{s.tickets === 1 ? "" : "s"}). Real fares are
             looked up after each new list arrives.
           </p>
         )}
         <p className="text-muted">
           {fmtMiles(r.distanceMiles)} from {origin.label} as the crow flies ·{" "}
           <a className="link" href={`https://maps.apple.com/?q=${encodeURIComponent(mapsQuery)}${near}`} target="_blank" rel="noreferrer">
-            Apple Maps ↗
+            Apple Maps <Icon as={ExternalLink} className="text-current opacity-70" />
           </a>{" "}
           ·{" "}
           <a
@@ -170,7 +174,7 @@ export default async function TripPage({ params }: Props) {
             target="_blank"
             rel="noreferrer"
           >
-            Google Maps ↗
+            Google Maps <Icon as={ExternalLink} className="text-current opacity-70" />
           </a>
         </p>
       </Section>
@@ -180,7 +184,7 @@ export default async function TripPage({ params }: Props) {
         <Weather r={r} nights={nights} />
       </Suspense>
 
-      <Section title="🎯 Things to do nearby">
+      <Section icon={Compass} title="Things to do nearby">
         {r.tags.length === 0 ? (
           <p className="text-muted">
             {r.untagged ? "Nearby activities haven't been checked yet." : "Nothing on our activity list was found nearby."}
@@ -199,7 +203,7 @@ export default async function TripPage({ params }: Props) {
         )}
       </Section>
 
-      <Section title="⭐ Why this score">
+      <Section icon={Gauge} title="Why this score">
         {r.costScore == null ? (
           <p className="text-muted">No cost yet, because the resort hasn&apos;t been found on the map.</p>
         ) : (
@@ -294,10 +298,13 @@ function WeatherSection({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ icon, title, children }: { icon?: LucideIcon; title: string; children: React.ReactNode }) {
   return (
     <section className="card space-y-2 p-4 text-sm leading-relaxed sm:p-5">
-      <h2 className="text-base font-semibold">{title}</h2>
+      <h2 className="flex items-center gap-2 text-base font-semibold">
+        {icon && <Icon as={icon} />}
+        {title}
+      </h2>
       {children}
     </section>
   );

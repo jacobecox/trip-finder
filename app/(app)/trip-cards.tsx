@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "@/components/icon";
+import { BedDouble, CalendarDays, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { daysUntil, fmtCountdown, fmtShortDate, fmtUsd, nightsBetween } from "@/lib/format";
@@ -55,7 +57,6 @@ function TripCard({
   return (
     <article className="card group relative flex min-w-0 flex-col gap-3 p-4 transition-colors hover:border-accent/40 has-[a:focus-visible]:border-accent">
       <header className="flex items-start gap-3">
-        <ScoreBadge score={r.score} color={color} size="lg" />
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-semibold leading-snug transition-colors group-hover:text-accent">
             {/* the link covers the whole card; the Google Flights link sits above it */}
@@ -67,21 +68,29 @@ function TripCard({
             {placeLine(r)}
           </p>
         </div>
-        <div className="shrink-0 text-right">
-          <div className="text-lg font-semibold leading-tight text-accent tabular-nums">{fmtUsd(r.totalUsd)}</div>
-          <div className="text-[11px] text-muted">whole trip</div>
+        {/* the score sits with the price, small: it's a guide, the place and price lead */}
+        <div className="flex shrink-0 items-center gap-2">
+          <span aria-label={`Score ${r.score == null ? "unknown" : Math.round(r.score)}`}>
+            <ScoreBadge score={r.score} color={color} size="sm" />
+          </span>
+          <div className="text-right">
+            <div className="text-lg font-semibold leading-tight text-accent tabular-nums">{fmtUsd(r.totalUsd)}</div>
+            <div className="text-[11px] text-muted">whole trip</div>
+          </div>
         </div>
       </header>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
         <ChangeBadges r={r} hint={false} />
         <span>
-          📅 {fmtShortDate(r.arrivalDate)} – {fmtShortDate(r.checkoutDate)}
+          <Icon as={CalendarDays} /> {fmtShortDate(r.arrivalDate)} – {fmtShortDate(r.checkoutDate)}
         </span>
         <span className="text-muted">
           {nights} nights · <span suppressHydrationWarning>{fmtCountdown(daysUntil(r.arrivalDate))}</span>
         </span>
-        <span className="text-muted">🛏 {r.unitType}</span>
+        <span className="text-muted">
+          <Icon as={BedDouble} /> {r.unitType}
+        </span>
         <WeatherChip r={r} nights={nights} hint={false} />
       </div>
 
@@ -98,7 +107,7 @@ function TripCard({
       <TagChips tags={r.tags} untagged={r.untagged} max={3} highlight={activity} hint={false} />
 
       <div className="mt-auto flex justify-end text-xs font-medium text-muted transition-colors group-hover:text-accent">
-        Full details ›
+        Full details <Icon as={ChevronRight} className="text-current" />
       </div>
     </article>
   );

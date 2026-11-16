@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "@/components/icon";
+import { Car, LayoutGrid, Map as MapIcon, Rows3, Search as SearchIcon, Sparkles, TrendingDown, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { TAGS, TAG_EMOJI, TAG_LABELS, type Tag } from "@/lib/tags/constants";
@@ -38,9 +40,9 @@ const PRESETS: { label: string; sort: Sort }[] = [
 ];
 
 const VIEWS = [
-  { id: "cards", label: "Cards", icon: "▦" },
-  { id: "map", label: "Map", icon: "🗺" },
-  { id: "table", label: "Table", icon: "☰" },
+  { id: "cards", label: "Cards", icon: LayoutGrid },
+  { id: "map", label: "Map", icon: MapIcon },
+  { id: "table", label: "Table", icon: Rows3 },
 ] as const;
 type View = (typeof VIEWS)[number]["id"];
 const VIEW_KEY = "trip-finder:view";
@@ -281,7 +283,7 @@ export default function Trips({
               checked={f.drivableOnly}
               onChange={(e) => set({ drivableOnly: e.target.checked })}
             />
-            🚗 Drivable only
+            <Icon as={Car} /> Drivable only
           </label>
           <button
             type="button"
@@ -321,12 +323,12 @@ export default function Trips({
             <span className="text-xs text-muted">Since the {previousList} list:</span>
             {newCount > 0 && (
               <ChipButton active={f.newOnly} onClick={() => set({ newOnly: !f.newOnly, dropsOnly: false })}>
-                ✨ New <span className="text-[10px] opacity-60">{newCount}</span>
+                <Icon as={Sparkles} /> New <span className="text-[10px] opacity-60">{newCount}</span>
               </ChipButton>
             )}
             {dropCount > 0 && (
               <ChipButton active={f.dropsOnly} onClick={() => set({ dropsOnly: !f.dropsOnly, newOnly: false })}>
-                ↓ Price drops <span className="text-[10px] opacity-60">{dropCount}</span>
+                <Icon as={TrendingDown} /> Price drops <span className="text-[10px] opacity-60">{dropCount}</span>
               </ChipButton>
             )}
           </div>
@@ -376,7 +378,7 @@ export default function Trips({
               }`}
             >
               <span aria-hidden className="mr-1">
-                {v.icon}
+                <Icon as={v.icon} className="text-current" />
               </span>
               {v.label}
             </button>
@@ -464,7 +466,7 @@ function Search({ value, onChange, className = "" }: { value: string; onChange: 
   return (
     <div className={`relative ${className}`}>
       <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted" aria-hidden>
-        🔍
+        <Icon as={SearchIcon} className="text-current" />
       </span>
       <input
         type="text"
@@ -484,7 +486,7 @@ function Search({ value, onChange, className = "" }: { value: string; onChange: 
           aria-label="Clear search"
           onClick={() => onChange("")}
         >
-          ✕
+          <Icon as={X} className="text-current" />
         </button>
       )}
     </div>

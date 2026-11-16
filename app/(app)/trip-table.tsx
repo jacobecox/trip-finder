@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "@/components/icon";
+import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { daysUntil, fmtDate, fmtHours, fmtMiles, fmtUsd, nightsBetween } from "@/lib/format";
@@ -60,7 +62,7 @@ export default function TripTable({
           onClick={() => setSort({ key, dir: active ? (-sort.dir as 1 | -1) : (FIRST_DIR[key] ?? 1) })}
         >
           {label}
-          <span className={active ? "" : "opacity-30 group-hover:opacity-70"}>{active ? (sort.dir === 1 ? "▲" : "▼") : "↕"}</span>
+          <span className={active ? "" : "opacity-30 group-hover:opacity-70"}><Icon as={active ? (sort.dir === 1 ? ChevronUp : ChevronDown) : ChevronsUpDown} className="text-current" /></span>
         </button>
       </th>
     );

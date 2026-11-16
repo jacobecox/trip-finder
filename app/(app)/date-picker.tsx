@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "@/components/icon";
+import { CalendarDays } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -97,7 +99,7 @@ export function DateRangePicker({
         }}
       >
         <span className={`truncate ${text ? "" : "text-muted/70"}`}>{text || placeholder}</span>
-        <span aria-hidden>📅</span>
+        <Icon as={CalendarDays} />
       </button>
       {open && (
         <div

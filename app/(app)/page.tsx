@@ -1,3 +1,5 @@
+import { Icon } from "@/components/icon";
+import { Luggage } from "lucide-react";
 import Link from "next/link";
 import { currentEmail, isAdminEmail } from "@/lib/auth";
 import { getEffectiveSettings, scoreSettingsOf } from "@/lib/prefs";
@@ -21,7 +23,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   if (!upload)
     return (
       <div className="card mx-auto max-w-lg space-y-3 p-8 text-center">
-        <p className="text-4xl">🧳</p>
+        <Icon as={Luggage} className="mx-auto size-10 text-accent" />
         <h1 className="text-lg font-semibold">No trips yet</h1>
         {admin ? (
           <p className="text-sm text-muted">

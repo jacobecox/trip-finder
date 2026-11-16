@@ -1,3 +1,5 @@
+import { Icon } from "@/components/icon";
+import { ArrowRight, Car, ExternalLink, Gauge, LayoutGrid, Lightbulb, Map as MapIcon, Plane, Search, Wrench, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { currentEmail, isAdminEmail } from "@/lib/auth";
 import { getEffectiveSettings } from "@/lib/prefs";
@@ -24,10 +26,10 @@ export default async function GuidePage() {
         </p>
       </header>
 
-      <Section icon="🃏" title="Reading a trip card">
+      <Section icon={LayoutGrid} title="Reading a trip card">
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
-            <b>Score badge</b> (top left): 0–100, higher is better. See below for how it&apos;s worked out.
+            <b>Score</b> (the small colored number by the price): 0–100, higher is better. See below for how it&apos;s worked out.
           </li>
           <li>
             <b>Whole trip price</b> (yellow, top right) = <b>Stay</b> + <b>Flights</b> (or <b>Gas</b> when we&apos;d
@@ -37,8 +39,10 @@ export default async function GuidePage() {
             <b>Dates</b>: check-in to check-out, how many nights, and how soon it starts.
           </li>
           <li>
-            <b>Travel</b>: 🚗 drive time for places within {s.maxDriveHours} hours of {s.originLabel}, otherwise ✈ the
-            cheapest flight we found. Click <span className="text-accent">Google Flights ↗</span> to see that search
+            <b>Travel</b>: <Icon as={Car} /> drive time for places within {s.maxDriveHours} hours of {s.originLabel}, otherwise <Icon as={Plane} /> the
+            cheapest flight we found. Click <span className="text-accent">
+              Google Flights <Icon as={ExternalLink} className="text-current" />
+            </span> to see that search
             yourself.
           </li>
           <li>
@@ -57,7 +61,7 @@ export default async function GuidePage() {
         </ul>
       </Section>
 
-      <Section icon="⭐" title="How the score works">
+      <Section icon={Gauge} title="How the score works">
         <p>
           The score mixes two things: <b>{costPct}% cost</b> and <b>{100 - costPct}% activities</b>.
         </p>
@@ -89,7 +93,7 @@ export default async function GuidePage() {
         </p>
       </Section>
 
-      <Section icon="🔎" title="Finding trips">
+      <Section icon={Search} title="Finding trips">
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
             <b>When</b>: pick a start and end day, or click the month name for the whole month. Days with stays are
@@ -99,10 +103,10 @@ export default async function GuidePage() {
             <b>Activity chips</b>: tap one (like 🏖️ Beach) to only see places with it. Tap it again to clear.
           </li>
           <li>
-            <b>🚗 Drivable only</b>: skip flying entirely.
+            <b>Drivable only</b> (<Icon as={Car} />): skip flying entirely.
           </li>
           <li>
-            <b>✨ New</b> and <b>↓ Price drops</b>: what changed since the previous list. Cards show a{" "}
+            <b>New</b> and <b>Price drops</b>: what changed since the previous list. Cards show a{" "}
             <span className="text-sky-300">New</span> tag or how much cheaper the stay got.
           </li>
           {s.altOriginAirport && (
@@ -111,6 +115,10 @@ export default async function GuidePage() {
               price already includes driving there and parking, so the comparison is fair.
             </li>
           )}
+          <li>
+            <b>Search</b>: type a place, state, region or activity (Big Bear, Florida, New England, skiing). Small typos are
+            fine.
+          </li>
           <li>
             <b>More filters</b>: number of plane tickets, unit size, country and state.
           </li>
@@ -124,7 +132,7 @@ export default async function GuidePage() {
         </ul>
       </Section>
 
-      <Section icon="🗺" title="Cards, map and table">
+      <Section icon={MapIcon} title="Cards, map and table">
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
             <b>Cards</b>: the easiest to read, and best on a phone.
@@ -140,7 +148,7 @@ export default async function GuidePage() {
         </ul>
       </Section>
 
-      <Section icon="💡" title="Good to know">
+      <Section icon={Lightbulb} title="Good to know">
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
             Prices marked <span className="text-amber-200">estimate</span> haven&apos;t had real fares looked up yet; they
@@ -158,7 +166,7 @@ export default async function GuidePage() {
       </Section>
 
       {admin && (
-        <Section icon="🛠" title="Admin (only you see this)">
+        <Section icon={Wrench} title="Admin (only you see this)">
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
               Forward the exchange&apos;s email to trips@ (or use{" "}
@@ -185,18 +193,18 @@ export default async function GuidePage() {
 
       <p className="text-center">
         <Link href="/" className="btn btn-primary">
-          Browse trips →
+          Browse trips <Icon as={ArrowRight} className="text-current" />
         </Link>
       </p>
     </article>
   );
 }
 
-function Section({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) {
+function Section({ icon, title, children }: { icon: LucideIcon; title: string; children: React.ReactNode }) {
   return (
     <section className="card space-y-2 p-5 text-sm leading-relaxed">
       <h2 className="flex items-center gap-2 text-base font-semibold">
-        <span aria-hidden>{icon}</span>
+        <Icon as={icon} />
         {title}
       </h2>
       {children}

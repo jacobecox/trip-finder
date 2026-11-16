@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "@/components/icon";
+import { Check, Plane } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Spinner } from "@/components/ui";
@@ -66,10 +68,10 @@ export default function FarePricer({
             title={`Trips with no flight price yet. Uses ${left.missing} of the ${free} searches left this month.`}
           >
             {busy === "missing" && <Spinner />}
-            {busy === "missing" ? `Pricing flights… ${left.missing} left` : `✈ Price ${left.missing} unpriced trip${left.missing === 1 ? "" : "s"}`}
+            {busy === "missing" ? `Pricing flights… ${left.missing} left` : <><Icon as={Plane} className="text-current" /> {`Price ${left.missing} unpriced trip${left.missing === 1 ? "" : "s"}`}</>}
           </button>
         ) : (
-          <span className="text-emerald-300">✓ Every trip has a flight price</span>
+          <span className="text-emerald-300"><Icon as={Check} className="text-current" /> Every trip has a flight price</span>
         )}
         <span className="text-xs text-muted">
           {used} of {cap} searches used this month
