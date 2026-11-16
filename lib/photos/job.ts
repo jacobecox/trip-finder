@@ -1,7 +1,8 @@
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { getDb, property } from "@/lib/db";
 import { getBlobStore } from "@/lib/storage";
-import { downloadPhoto, findPlaceId, PhotoCapError, placePhotos, placesEnabled } from "./google";
+import { downloadPhoto, findPlaceId, PhotoCapError, type PhotoMeta, placePhotos, placesEnabled } from "./google";
+import { CANDIDATES, choosePhoto } from "./pick";
 import { wikiPhoto } from "./wiki";
 
 const pending = and(eq(property.photoStatus, "pending"), eq(property.geocodeStatus, "ok"), isNotNull(property.lat));
@@ -14,23 +15,14 @@ export async function countPhotoPending() {
 
 const ext = (type: string) => (type.includes("png") ? "png" : type.includes("webp") ? "webp" : "jpg");
 
-/**
- * Downloads the place's nth photo once and keeps it (Blob storage), with its photographer.
- * Used when a resort is first seen and when the admin asks for the next photo.
- */
-export async function saveGooglePhoto(propertyId: number, placeId: string, index: number) {
-  const photos = await placePhotos(placeId);
-  if (!photos.length) return false;
-  const i = index % photos.length;
-  const ph = photos[i];
-  const img = await downloadPhoto(ph);
-  const url = await getBlobStore().put(`photos/property-${propertyId}-${i}.${ext(img.type)}`, img.bytes, img.type);
+async function keep(propertyId: number, placeId: string, index: number, ph: PhotoMeta, img: { type: string; bytes: Uint8Array }) {
+  const url = await getBlobStore().put(`photos/property-${propertyId}-${index}.${ext(img.type)}`, img.bytes, img.type);
   await getDb()
     .update(property)
     .set({
       photoStatus: "google",
       googlePlaceId: placeId,
-      photoIndex: i,
+      photoIndex: index,
       photoUrl: url,
       photoCredit: ph.author,
       photoCreditUrl: ph.authorUri,
@@ -38,13 +30,33 @@ export async function saveGooglePhoto(propertyId: number, placeId: string, index
       updatedAt: new Date(),
     })
     .where(eq(property.id, propertyId));
+}
+
+/** Downloads the place's nth photo and keeps it (the admin's "next photo"). */
+export async function saveGooglePhoto(propertyId: number, placeId: string, index: number) {
+  const photos = await placePhotos(placeId);
+  if (!photos.length) return false;
+  const i = index % photos.length;
+  await keep(propertyId, placeId, i, photos[i], await downloadPhoto(photos[i]));
   return true;
 }
 
 /**
- * Finds and keeps a photo for each located resort that has none yet: the resort's Google place
- * photo, else Wikipedia's photo of the town. Runs once per resort, so new lists of the same
- * resorts download nothing. Resumable; stops for the month at the photo cap.
+ * Downloads the place's first few photos and has Claude pick the one that best shows the resort
+ * (aerial, pool, grounds, full exterior; not balconies, rooms or walls). Null if it has none.
+ */
+async function pickGooglePhoto(name: string, placeId: string) {
+  const photos = (await placePhotos(placeId)).slice(0, CANDIDATES);
+  const images: { type: string; bytes: Uint8Array }[] = [];
+  for (const ph of photos) images.push(await downloadPhoto(ph));
+  const choice = await choosePhoto(name, images);
+  return choice && { ...choice, photo: photos[choice.index], image: images[choice.index] };
+}
+
+/**
+ * Finds and keeps a photo for each located resort that has none yet: the best of the resort's
+ * Google photos (chosen by Claude), else Wikipedia's photo of the town. Runs once per resort, so
+ * new lists of the same resorts download nothing. Resumable; stops for the month at the photo cap.
  */
 export async function runPhotoBatch(budgetMs = 40_000) {
   const start = Date.now();
@@ -56,8 +68,11 @@ export async function runPhotoBatch(budgetMs = 40_000) {
     if (Date.now() - start >= budgetMs) break;
     try {
       const placeId = await findPlaceId({ ...p, lat: p.lat!, lng: p.lng! });
-      if (!(placeId && (await saveGooglePhoto(p.id, placeId, 0)))) {
-        const w = await wikiPhoto(p);
+      const g = placeId ? await pickGooglePhoto(p.name, placeId) : null;
+      // a weak pick (no photo really shows the resort) loses to Wikipedia's photo of the town
+      const w = g?.showsProperty ? null : await wikiPhoto(p);
+      if (g && !w) await keep(p.id, placeId!, g.index, g.photo, g.image);
+      else
         await db
           .update(property)
           .set({
@@ -70,7 +85,6 @@ export async function runPhotoBatch(budgetMs = 40_000) {
             updatedAt: new Date(),
           })
           .where(eq(property.id, p.id));
-      }
     } catch (e) {
       if (e instanceof PhotoCapError) {
         capReached = true; // stays pending; picked up next month

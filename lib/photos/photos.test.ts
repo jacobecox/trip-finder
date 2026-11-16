@@ -42,3 +42,14 @@ describe("Wikipedia image size", () => {
     expect(sized("https://upload.wikimedia.org/thumb/Flag_of_Austria.png/330px-Flag_of_Austria.png")).toBeNull();
   });
 });
+
+describe("choosePhoto", () => {
+  it("takes the first photo when there's no Claude key, and nothing when there are no photos", async () => {
+    const { choosePhoto } = await import("./pick");
+    const saved = process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    expect(await choosePhoto("X", [{ type: "image/jpeg", bytes: new Uint8Array() }])).toEqual({ index: 0, showsProperty: true });
+    expect(await choosePhoto("X", [])).toBeNull();
+    if (saved) process.env.ANTHROPIC_API_KEY = saved;
+  });
+});
