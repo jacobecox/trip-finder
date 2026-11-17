@@ -23,6 +23,7 @@ describe("photoOf", () => {
     });
     expect(photoOf({ ...base, photoStatus: "hidden" })).toBeNull();
     expect(photoOf({ ...base, photoStatus: "pending", photoUrl: null })).toBeNull();
+    expect(photoOf({ ...base, photoStatus: "pending" })?.src).toBe("/api/photo/7?v=2"); // waiting for a re-pick
     expect(photoOf({ ...base, photoUrl: null })).toBeNull();
   });
 });

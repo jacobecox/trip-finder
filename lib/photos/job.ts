@@ -1,11 +1,16 @@
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, lt, or, sql } from "drizzle-orm";
 import { getDb, property } from "@/lib/db";
 import { getBlobStore } from "@/lib/storage";
-import { downloadPhoto, findPlaceId, PhotoCapError, type PhotoMeta, placePhotos, placesEnabled } from "./google";
+import { downloadPhoto, findPlaceId, PHOTO_CAP, PhotoCapError, type PhotoMeta, photoUsage, placePhotos, placesEnabled } from "./google";
 import { CANDIDATES, choosePhoto } from "./pick";
 import { wikiPhoto } from "./wiki";
 
-const pending = and(eq(property.photoStatus, "pending"), eq(property.geocodeStatus, "ok"), isNotNull(property.lat));
+// "picking" = claimed by a run; if that run died, it's free again after 10 minutes
+const claimable = or(
+  eq(property.photoStatus, "pending"),
+  and(eq(property.photoStatus, "picking"), lt(property.updatedAt, sql`now() - interval '10 minutes'`)),
+);
+const pending = and(claimable, eq(property.geocodeStatus, "ok"), isNotNull(property.lat));
 
 export async function countPhotoPending() {
   if (!placesEnabled()) return 0;
@@ -66,6 +71,18 @@ export async function runPhotoBatch(budgetMs = 40_000) {
   let capReached = false;
   for (const p of rows) {
     if (Date.now() - start >= budgetMs) break;
+    // only start a resort if all its downloads fit this month
+    if ((await photoUsage()) + CANDIDATES > PHOTO_CAP) {
+      capReached = true;
+      break;
+    }
+    // claim it, so two runs never pick (and pay for) the same resort
+    const [claimed] = await db
+      .update(property)
+      .set({ photoStatus: "picking", updatedAt: new Date() })
+      .where(and(eq(property.id, p.id), claimable))
+      .returning({ id: property.id });
+    if (!claimed) continue;
     try {
       const placeId = await findPlaceId({ ...p, lat: p.lat!, lng: p.lng! });
       const g = placeId ? await pickGooglePhoto(p.name, placeId) : null;
@@ -87,7 +104,8 @@ export async function runPhotoBatch(budgetMs = 40_000) {
           .where(eq(property.id, p.id));
     } catch (e) {
       if (e instanceof PhotoCapError) {
-        capReached = true; // stays pending; picked up next month
+        capReached = true; // back to pending; picked up next month
+        await db.update(property).set({ photoStatus: "pending" }).where(eq(property.id, p.id));
         break;
       }
       await db

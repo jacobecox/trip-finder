@@ -64,7 +64,7 @@ export const property = pgTable(
 
     // resort photo, fetched once when the resort is first seen and kept (Google's photo copied to
     // Blob storage, or Wikipedia's photo of the town linked directly).
-    // pending | google | wiki | none | hidden | failed
+    // pending | picking | google | wiki | none | hidden | failed
     photoStatus: text("photo_status").notNull().default("pending"),
     photoError: text("photo_error"),
     googlePlaceId: text("google_place_id"),

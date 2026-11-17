@@ -14,11 +14,12 @@ export function photoOf(p: {
   photoCredit: string | null;
   photoCreditUrl: string | null;
 }): Photo | null {
-  if (!p.photoUrl) return null;
-  if (p.photoStatus === "google")
-    // served by our route from private storage; the index in the address means a newly picked
-    // photo isn't stuck behind the browser's cache
-    return { kind: "google", src: `/api/photo/${p.propertyId}?v=${p.photoIndex}`, credit: p.photoCredit, creditUrl: p.photoCreditUrl };
-  if (p.photoStatus === "wiki") return { kind: "wiki", src: p.photoUrl, credit: "Wikipedia", creditUrl: p.photoCreditUrl };
-  return null;
+  // a resort waiting to be re-picked keeps showing its current photo
+  if (!p.photoUrl || p.photoStatus === "hidden" || p.photoStatus === "none") return null;
+  if (isWiki(p.photoUrl)) return { kind: "wiki", src: p.photoUrl, credit: "Wikipedia", creditUrl: p.photoCreditUrl };
+  // served by our route from private storage; the index in the address means a newly picked
+  // photo isn't stuck behind the browser's cache
+  return { kind: "google", src: `/api/photo/${p.propertyId}?v=${p.photoIndex}`, credit: p.photoCredit, creditUrl: p.photoCreditUrl };
 }
+
+export const isWiki = (url: string) => url.startsWith("https://upload.wikimedia.org/");
