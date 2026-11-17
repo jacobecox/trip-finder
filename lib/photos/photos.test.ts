@@ -12,7 +12,10 @@ describe("photoOf", () => {
     photoCreditUrl: "https://maps.google.com/contrib/1",
   };
   it("serves kept Google photos through our route, with the index so a new pick isn't cached", () => {
-    expect(photoOf(base)).toEqual({ kind: "google", src: "/api/photo/7?v=2", credit: "Pono Kai Resort", creditUrl: "https://maps.google.com/contrib/1" });
+    const v = photoOf(base)!.src;
+    expect(v).toMatch(/^\/api\/photo\/7\?v=\w+$/);
+    expect(photoOf({ ...base, photoUrl: "https://blob/y.jpg" })!.src).not.toBe(v); // a new pick gets a new address
+    expect(photoOf(base)).toEqual({ kind: "google", src: v, credit: "Pono Kai Resort", creditUrl: "https://maps.google.com/contrib/1" });
   });
   it("links Wikipedia photos directly, and shows nothing when hidden or missing", () => {
     expect(photoOf({ ...base, photoStatus: "wiki", photoUrl: "https://upload.wikimedia.org/a.jpg", photoCreditUrl: "https://en.wikipedia.org/wiki/A" })).toEqual({
@@ -23,7 +26,8 @@ describe("photoOf", () => {
     });
     expect(photoOf({ ...base, photoStatus: "hidden" })).toBeNull();
     expect(photoOf({ ...base, photoStatus: "pending", photoUrl: null })).toBeNull();
-    expect(photoOf({ ...base, photoStatus: "pending" })?.src).toBe("/api/photo/7?v=2"); // waiting for a re-pick
+    expect(photoOf({ ...base, photoStatus: "pending" })?.kind).toBe("google"); // waiting for a re-pick
+    expect(photoOf({ ...base, photoUrl: "https://thumb.wikimedia.org/a.jpg" })?.kind).toBe("wiki");
     expect(photoOf({ ...base, photoUrl: null })).toBeNull();
   });
 });
