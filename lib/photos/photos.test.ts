@@ -29,7 +29,7 @@ describe("choosePhoto", () => {
     const { choosePhoto } = await import("./pick");
     const saved = process.env.ANTHROPIC_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;
-    expect(await choosePhoto("X", [{ type: "image/jpeg", bytes: new Uint8Array() }])).toEqual({ index: 0, rating: "ok", showsProperty: true });
+    expect(await choosePhoto("X", [{ type: "image/jpeg", bytes: new Uint8Array() }])).toEqual({ index: 0, showsProperty: true, ideal: true });
     expect(await choosePhoto("X", [])).toBeNull();
     if (saved) process.env.ANTHROPIC_API_KEY = saved;
   });
@@ -40,5 +40,23 @@ describe("mediaType", () => {
     const { mediaType } = await import("./pick");
     expect(mediaType({ type: "image/jpeg", bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) })).toBe("image/png");
     expect(mediaType({ type: "image/png", bytes: new Uint8Array([0xff, 0xd8, 0xff]) })).toBe("image/jpeg");
+  });
+});
+
+describe("isIdeal", async () => {
+  const { isIdeal } = await import("./pick");
+  it("scenic resorts want the resort with its setting", () => {
+    expect(isIdeal({ scenicSetting: true, showcasePool: true }, "property_with_setting")).toBe(true);
+    expect(isIdeal({ scenicSetting: true, showcasePool: true }, "pool")).toBe(false);
+  });
+  it("else a showcase pool", () => {
+    expect(isIdeal({ scenicSetting: false, showcasePool: true }, "pool")).toBe(true);
+    expect(isIdeal({ scenicSetting: false, showcasePool: true }, "full_exterior")).toBe(false);
+  });
+  it("else any photo of the property, never one without it", () => {
+    expect(isIdeal({ scenicSetting: false, showcasePool: false }, "full_exterior")).toBe(true);
+    expect(isIdeal({ scenicSetting: false, showcasePool: false }, "facade_closeup")).toBe(true);
+    expect(isIdeal({ scenicSetting: false, showcasePool: false }, "room_interior")).toBe(false);
+    expect(isIdeal({ scenicSetting: false, showcasePool: false }, "view_without_resort")).toBe(false);
   });
 });

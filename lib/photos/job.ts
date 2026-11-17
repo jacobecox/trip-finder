@@ -46,20 +46,20 @@ export async function saveGooglePhoto(propertyId: number, placeId: string, index
 }
 
 /**
- * Has Claude pick the place photo that best shows the resort (pool, grounds, close aerial, full
- * exterior). Looks at the first CANDIDATES photos, and only if none of them shows the resort, at
- * the rest (Google lists up to 10). Null if no photo shows it.
+ * Has Claude pick the place photo that best shows the resort (see pick.ts for the rule). Looks at
+ * the first CANDIDATES photos; if none of them is the ideal kind for this resort, at all of them
+ * (Google lists up to 10). Null if no photo shows the resort itself.
  */
 async function pickGooglePhoto(name: string, placeId: string) {
-  const all = await placePhotos(placeId);
-  for (let from = 0; from < Math.min(all.length, MAX_PHOTOS); from += CANDIDATES) {
-    const photos = all.slice(from, Math.min(from + CANDIDATES, MAX_PHOTOS));
-    const images: { type: string; bytes: Uint8Array }[] = [];
-    for (const ph of photos) images.push(await downloadPhoto(ph));
-    const choice = await choosePhoto(name, images);
-    if (choice?.showsProperty) return { index: from + choice.index, photo: photos[choice.index], image: images[choice.index] };
+  const photos = (await placePhotos(placeId)).slice(0, MAX_PHOTOS);
+  const images: { type: string; bytes: Uint8Array }[] = [];
+  for (const ph of photos.slice(0, CANDIDATES)) images.push(await downloadPhoto(ph));
+  let choice = await choosePhoto(name, images);
+  if (!choice?.ideal && photos.length > images.length) {
+    for (const ph of photos.slice(images.length)) images.push(await downloadPhoto(ph));
+    choice = await choosePhoto(name, images); // judged again together, so the best of all wins
   }
-  return null;
+  return choice?.showsProperty ? { index: choice.index, photo: photos[choice.index], image: images[choice.index] } : null;
 }
 
 /**
