@@ -2,8 +2,7 @@ import { and, eq, isNotNull, lt, or, sql } from "drizzle-orm";
 import { getDb, property } from "@/lib/db";
 import { getBlobStore } from "@/lib/storage";
 import { downloadPhoto, findPlaceId, PHOTO_CAP, PhotoCapError, type PhotoMeta, photoUsage, placePhotos, placesEnabled } from "./google";
-import { CANDIDATES, choosePhoto } from "./pick";
-import { wikiPhoto } from "./wiki";
+import { CANDIDATES, choosePhoto, MAX_PHOTOS } from "./pick";
 
 // "picking" = claimed by a run; if that run died, it's free again after 10 minutes
 const claimable = or(
@@ -47,20 +46,25 @@ export async function saveGooglePhoto(propertyId: number, placeId: string, index
 }
 
 /**
- * Downloads the place's first few photos and has Claude pick the one that best shows the resort
- * (aerial, pool, grounds, full exterior; not balconies, rooms or walls). Null if it has none.
+ * Has Claude pick the place photo that best shows the resort (pool, grounds, close aerial, full
+ * exterior). Looks at the first CANDIDATES photos, and only if none of them shows the resort, at
+ * the rest (Google lists up to 10). Null if no photo shows it.
  */
 async function pickGooglePhoto(name: string, placeId: string) {
-  const photos = (await placePhotos(placeId)).slice(0, CANDIDATES);
-  const images: { type: string; bytes: Uint8Array }[] = [];
-  for (const ph of photos) images.push(await downloadPhoto(ph));
-  const choice = await choosePhoto(name, images);
-  return choice && { ...choice, photo: photos[choice.index], image: images[choice.index] };
+  const all = await placePhotos(placeId);
+  for (let from = 0; from < Math.min(all.length, MAX_PHOTOS); from += CANDIDATES) {
+    const photos = all.slice(from, Math.min(from + CANDIDATES, MAX_PHOTOS));
+    const images: { type: string; bytes: Uint8Array }[] = [];
+    for (const ph of photos) images.push(await downloadPhoto(ph));
+    const choice = await choosePhoto(name, images);
+    if (choice?.showsProperty) return { index: from + choice.index, photo: photos[choice.index], image: images[choice.index] };
+  }
+  return null;
 }
 
 /**
  * Finds and keeps a photo for each located resort that has none yet: the best of the resort's
- * Google photos (chosen by Claude), else Wikipedia's photo of the town. Runs once per resort, so
+ * Google photos that actually shows it (chosen by Claude), else none. Runs once per resort, so
  * new lists of the same resorts download nothing. Resumable; stops for the month at the photo cap.
  */
 export async function runPhotoBatch(budgetMs = 40_000) {
@@ -72,7 +76,7 @@ export async function runPhotoBatch(budgetMs = 40_000) {
   for (const p of rows) {
     if (Date.now() - start >= budgetMs) break;
     // only start a resort if all its downloads fit this month
-    if ((await photoUsage()) + CANDIDATES > PHOTO_CAP) {
+    if ((await photoUsage()) + MAX_PHOTOS > PHOTO_CAP) {
       capReached = true;
       break;
     }
@@ -86,21 +90,12 @@ export async function runPhotoBatch(budgetMs = 40_000) {
     try {
       const placeId = await findPlaceId({ ...p, lat: p.lat!, lng: p.lng! });
       const g = placeId ? await pickGooglePhoto(p.name, placeId) : null;
-      // a weak pick (no photo really shows the resort) loses to Wikipedia's photo of the town
-      const w = g?.showsProperty ? null : await wikiPhoto(p);
-      if (g && !w) await keep(p.id, placeId!, g.index, g.photo, g.image);
+      if (g) await keep(p.id, placeId!, g.index, g.photo, g.image);
       else
+        // no photo shows the resort: the card shows its plain placeholder instead
         await db
           .update(property)
-          .set({
-            photoStatus: w ? "wiki" : "none",
-            googlePlaceId: placeId,
-            photoUrl: w?.url ?? null,
-            photoCredit: w ? "Wikipedia" : null,
-            photoCreditUrl: w?.page ?? null,
-            photoError: null,
-            updatedAt: new Date(),
-          })
+          .set({ photoStatus: "none", googlePlaceId: placeId, photoUrl: null, photoCredit: null, photoCreditUrl: null, photoError: null, updatedAt: new Date() })
           .where(eq(property.id, p.id));
     } catch (e) {
       if (e instanceof PhotoCapError) {

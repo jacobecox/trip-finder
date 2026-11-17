@@ -79,7 +79,7 @@ export async function processPending(budgetMs: number): Promise<PipelineResult> 
     }
   }
 
-  // 5. a photo for each new resort (Google place, else Wikipedia's photo of the town)
+  // 5. a photo for each new resort: the Google place photo that best shows it
   let photoRemaining = 0;
   if (geocodeRemaining === 0) {
     photoRemaining = await countPhotoPending();

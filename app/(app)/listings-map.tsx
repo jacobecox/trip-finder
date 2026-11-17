@@ -22,7 +22,7 @@ export interface MapRow extends MapListing {
 function photoHtml(l: MapRow, width: number) {
   const ph = l.photo;
   if (!ph) return "";
-  const credit = ph.kind === "wiki" ? "Wikipedia" : ph.credit ? `${ph.credit} · Google Maps` : "Google Maps";
+  const credit = ph.credit ? `${ph.credit} · Google Maps` : "Google Maps";
   return `<div style="position:relative;width:${width}px;height:${Math.round(width / 2)}px;margin-bottom:6px;border-radius:0.4rem;overflow:hidden;background:#1e2433">
     <img src="${escapeHtml(ph.src)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.remove()">
     <span style="position:absolute;right:4px;bottom:4px;max-width:85%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:3px;background:rgb(0 0 0 / .55);padding:0 4px;font-size:9px;font-weight:400;color:rgb(255 255 255 / .85)">Photo: ${escapeHtml(credit)}</span>

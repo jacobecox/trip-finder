@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { Photo } from "@/lib/photos/ref";
 
 /**
- * A resort's photo filling its box, with the credit Google (or Wikipedia) asks for in the corner.
+ * A resort's photo filling its box, with the credit Google asks for in the corner.
  * No photo, or one that fails to load, shows a quiet placeholder so cards stay the same shape.
  * Plain <img>: the Google photos come from our signed-in route, which Next's image optimizer
  * can't fetch.
@@ -46,7 +46,7 @@ export function PropertyPhoto({
 }
 
 function Credit({ photo }: { photo: Photo }) {
-  const text = photo.kind === "wiki" ? "Photo of the area · Wikipedia" : photo.credit ? `Photo: ${photo.credit} · Google Maps` : "Photo: Google Maps";
+  const text = photo.credit ? `Photo: ${photo.credit} · Google Maps` : "Photo: Google Maps";
   const cls =
     "absolute right-1.5 bottom-1.5 z-10 max-w-[70%] truncate rounded bg-black/55 px-1.5 py-px text-[10px] text-white/85 backdrop-blur-sm hover:text-white";
   return photo.creditUrl ? (

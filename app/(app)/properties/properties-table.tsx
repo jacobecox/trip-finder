@@ -54,21 +54,20 @@ function PhotoEditor({ p, send }: { p: P; send: (body: object) => Promise<void> 
             next photo
           </button>
         )}
-        {(status === "google" || status === "wiki") && (
+        {status === "google" && (
           <button className="text-muted underline hover:text-ink" onClick={() => send({ photo: "hide" })}>
             hide
           </button>
         )}
-        {status !== "pending" && (
+        {status !== "pending" && status !== "picking" && (
           <button className="text-muted underline hover:text-ink" onClick={() => send({ photo: "refind" })}>
             find again
           </button>
         )}
       </div>
-      {status === "wiki" && <div className="text-muted">town photo (no Google photo)</div>}
-      {status === "none" && <div className="text-muted">no photo found</div>}
+      {status === "none" && <div className="text-muted">no photo shows the resort</div>}
       {status === "hidden" && <div className="text-muted">hidden</div>}
-      {status === "pending" && p.lat != null && <div className="text-amber-300">pending</div>}
+      {(status === "pending" || status === "picking") && p.lat != null && <div className="text-amber-300">to be picked</div>}
       {status === "failed" && <div className="text-red-300">failed: {p.photoError}</div>}
     </div>
   );
