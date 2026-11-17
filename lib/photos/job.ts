@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
 import { getDb, property } from "@/lib/db";
 import { getBlobStore } from "@/lib/storage";
 import { downloadPhoto, findPlaceId, PHOTO_CAP, PhotoCapError, type PhotoMeta, photoUsage, placePhotos, placesEnabled } from "./google";
@@ -66,11 +66,12 @@ async function pickGooglePhoto(name: string, placeId: string) {
  * Finds and keeps a photo for each located resort that has none yet: the best of the resort's
  * Google photos that actually shows it (chosen by Claude), else none. Runs once per resort, so
  * new lists of the same resorts download nothing. Resumable; stops for the month at the photo cap.
+ * `ids` limits it to those resorts (a one-off re-pick).
  */
-export async function runPhotoBatch(budgetMs = 40_000) {
+export async function runPhotoBatch(budgetMs = 40_000, ids?: number[]) {
   const start = Date.now();
   const db = getDb();
-  const rows = await db.select().from(property).where(pending).limit(200);
+  const rows = await db.select().from(property).where(ids ? and(pending, inArray(property.id, ids)) : pending).limit(200);
   let processed = 0;
   let capReached = false;
   for (const p of rows) {

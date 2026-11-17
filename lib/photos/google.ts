@@ -9,7 +9,8 @@ import { distanceKm } from "@/lib/geo/util";
  * and kept; downloads are counted and stop at PHOTO_CAP a month.
  */
 const BASE = "https://places.googleapis.com/v1";
-export const PHOTO_CAP = 900; // a month, under the 1,000 free
+// a month, under the 1,000 free; PHOTO_CAP in the env raises it for a one-off local run
+export const PHOTO_CAP = Number(process.env.PHOTO_CAP) || 900;
 export const PHOTO_WIDTH = 1000; // one size serves cards, map and trip page
 const SERVICE = "places-photo";
 
